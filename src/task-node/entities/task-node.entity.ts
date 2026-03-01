@@ -15,9 +15,6 @@ export class TaskNode {
   id!: string;
 
   @Property()
-  graphId!: string;
-
-  @Property()
   nodeId!: string;
 
   @Property()

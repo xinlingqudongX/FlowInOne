@@ -4,12 +4,11 @@
   "description": "",
   "author": "",
   "private": true,
-  "type": "module",
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "start": "nest start",
+    "start": "node dist/main",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
@@ -22,18 +21,19 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
-    "@mikro-orm/better-sqlite": "^6.6.7",
+    "@fastify/static": "^9.0.0",
     "@mikro-orm/core": "^6.4.0",
     "@mikro-orm/nestjs": "^5.2.3",
+    "@mikro-orm/sqlite": "^6.6.7",
     "@nestjs/common": "^11.1.14",
     "@nestjs/core": "^11.1.14",
     "@nestjs/platform-fastify": "^11.1.14",
+    "@nestjs/serve-static": "^5.0.4",
     "@nestjs/swagger": "^11.2.6",
     "@scalar/nestjs-api-reference": "^1.0.29",
     "fastify": "^5.4.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
-    "sqlite3": "^5.1.7",
     "zod": "^3.24.1"
   },
   "devDependencies": {
@@ -45,6 +45,7 @@
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.19.13",
+    "@types/serve-static": "^2.2.0",
     "@types/supertest": "^6.0.3",
     "cross-env": "^7.0.3",
     "eslint": "^9.39.3",

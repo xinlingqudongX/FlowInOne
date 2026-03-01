@@ -6,7 +6,10 @@ export class AppController {
   constructor(private readonly appService: AppService) {}
 
   @Get()
-  getHello(): string {
-    return this.appService.getHello();
+  getHello(): { message: string; status: string } {
+    return {
+      message: 'Welcome to FlowInOne API',
+      status: 'API is running successfully',
+    };
   }
 }

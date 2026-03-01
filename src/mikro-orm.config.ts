@@ -1,8 +1,8 @@
 import { Options } from '@mikro-orm/core';
-import { BetterSqliteDriver } from '@mikro-orm/better-sqlite';
+import { SqliteDriver } from '@mikro-orm/sqlite';
 
-const config: Options<BetterSqliteDriver> = {
-  driver: BetterSqliteDriver,
+const config: Options<SqliteDriver> = {
+  driver: SqliteDriver,
   dbName: 'database.sqlite',
   debug: true,
   entities: ['./dist/**/*.entity.js', './src/**/*.entity.ts'],

@@ -1,13 +1,10 @@
 import { Entity, PrimaryKey, Property, ManyToOne } from '@mikro-orm/core';
-import { Project } from './project.entity';
+import { ProjectEntity } from './project.entity';
 
 @Entity()
 export class ProjectAsset {
   @PrimaryKey()
   id!: string;
-
-  @Property()
-  projectId!: string;
 
   @Property()
   filePath!: string;
@@ -18,6 +15,6 @@ export class ProjectAsset {
   @Property({ nullable: true })
   lastHash?: string;
 
-  @ManyToOne(() => Project)
-  project!: Project;
+  @ManyToOne(() => ProjectEntity)
+  project!: ProjectEntity;
 }

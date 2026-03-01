@@ -5,10 +5,9 @@ import {
   OneToMany,
   Collection,
 } from '@mikro-orm/core';
-import { WorkflowGraph } from '../../workflow-graph/entities/workflow-graph.entity';
 
 @Entity()
-export class Project {
+export class ProjectEntity {
   @PrimaryKey()
   id!: string;
 
@@ -29,7 +28,4 @@ export class Project {
 
   @Property({ onUpdate: () => new Date() })
   updatedAt: Date = new Date();
-
-  @OneToMany(() => WorkflowGraph, (graph) => graph.project)
-  graphs = new Collection<WorkflowGraph>(this);
 }
