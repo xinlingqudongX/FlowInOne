@@ -4,6 +4,7 @@ import { resolve } from 'path';
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: '/public/', // 设置基础路径
   plugins: [vue()],
   build: {
     outDir: '../src/public',
