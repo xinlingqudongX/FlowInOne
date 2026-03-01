@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // 主应用组件保持原有的欢迎页面功能
 import { ref } from 'vue'
+import WorkflowEditor from './components/WorkflowEditor.vue'
 
 const features = ref([
   { name: '项目管理', description: '创建和管理项目，跟踪进度，分配资源', icon: '📊' },
@@ -10,6 +11,7 @@ const features = ref([
 ])
 
 const apiStatus = ref('检查中...')
+const showWorkflowEditor = ref(false)
 
 //检查API状态
 fetch('/api-reference')
@@ -23,6 +25,10 @@ fetch('/api-reference')
   .catch(() => {
     apiStatus.value = '无法连接到API'
   })
+
+const toggleWorkflowEditor = () => {
+  showWorkflowEditor.value = !showWorkflowEditor.value
+}
 </script>
 
 <template>
@@ -33,32 +39,42 @@ fetch('/api-reference')
     </header>
     
     <main class="main">
-      <div class="welcome-card">
-        <h2>欢迎使用 FlowInOne</h2>
-        <p>FlowInOne 是一个现代化的工作流管理平台，帮助您高效地组织和执行复杂的业务流程。</p>
-        <div class="api-status">
-          <span class="status-indicator" :class="{ 
-            'status-ok': apiStatus.includes('可用'), 
-            'status-error': apiStatus.includes('不可用') || apiStatus.includes('无法连接') 
-          }"></span>
-          API状态: {{ apiStatus }}
+      <div v-if="!showWorkflowEditor">
+        <div class="welcome-card">
+          <h2>欢迎使用 FlowInOne</h2>
+          <p>FlowInOne 是一个现代化的工作流管理平台，帮助您高效地组织和执行复杂的业务流程。</p>
+          <div class="api-status">
+            <span class="status-indicator" :class="{ 
+              'status-ok': apiStatus.includes('可用'), 
+              'status-error': apiStatus.includes('不可用') || apiStatus.includes('无法连接') 
+            }"></span>
+            API状态: {{ apiStatus }}
+          </div>
+          <div class="navigation-links">
+            <a href="/api-reference" class="api-link">查看 API 文档</a>
+            <button @click="toggleWorkflowEditor" class="workflow-button">工作流编辑器</button>
+          </div>
         </div>
-        <div class="navigation-links">
-          <a href="/api-reference" class="api-link">查看 API 文档</a>
-          <a href="/public/workflow.html" class="workflow-link">工作流编辑器</a>
+        
+        <div class="features-grid">
+          <div 
+            v-for="feature in features" 
+            :key="feature.name" 
+            class="feature-card"
+          >
+            <div class="feature-icon">{{ feature.icon }}</div>
+            <h3>{{ feature.name }}</h3>
+            <p>{{ feature.description }}</p>
+          </div>
         </div>
       </div>
       
-      <div class="features-grid">
-        <div 
-          v-for="feature in features" 
-          :key="feature.name" 
-          class="feature-card"
-        >
-          <div class="feature-icon">{{ feature.icon }}</div>
-          <h3>{{ feature.name }}</h3>
-          <p>{{ feature.description }}</p>
+      <div v-else class="workflow-container">
+        <div class="workflow-header">
+          <h2>工作流编辑器</h2>
+          <button @click="toggleWorkflowEditor" class="back-button">← 返回主页</button>
         </div>
+        <WorkflowEditor />
       </div>
     </main>
     
@@ -149,26 +165,29 @@ fetch('/api-reference')
   margin-top: 1rem;
 }
 
-.api-link, .workflow-link {
+.api-link {
   display: inline-block;
   padding: 0.8rem 1.5rem;
   border-radius: 25px;
   text-decoration: none;
   font-weight: 500;
   transition: all 0.3s ease;
-}
-
-.api-link {
   background: #667eea;
   color: white;
 }
 
-.workflow-link {
+.workflow-button {
+  padding: 0.8rem 1.5rem;
+  border: none;
+  border-radius: 25px;
   background: #4CAF50;
   color: white;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
 }
 
-.api-link:hover, .workflow-link:hover {
+.api-link:hover, .workflow-button:hover {
   text-decoration: none;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
@@ -179,7 +198,7 @@ fetch('/api-reference')
   color: white;
 }
 
-.workflow-link:hover {
+.workflow-button:hover {
   background: #45a049;
   color: white;
 }
@@ -218,6 +237,45 @@ fetch('/api-reference')
   color: #666;
   margin: 0;
   line-height: 1.5;
+}
+
+/* 工作流编辑器样式 */
+.workflow-container {
+  background: white;
+  border-radius: 15px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  max-width: 100%;
+  width: 100%;
+}
+
+.workflow-header {
+  background: #667eea;
+  color: white;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.workflow-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.back-button {
+  padding: 0.5rem 1rem;
+  border: 1px solid white;
+  border-radius: 20px;
+  background: transparent;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.back-button:hover {
+  background: white;
+  color: #667eea;
 }
 
 .footer {

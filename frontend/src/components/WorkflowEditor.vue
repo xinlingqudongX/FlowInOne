@@ -405,17 +405,38 @@ onBeforeUnmount(() => {
   flex: 1;
   display: flex;
   overflow: hidden;
+  min-height: 600px;
+  width: 100%;
+  max-width: 100%;
 }
 
 .graph-container {
   flex: 1;
   position: relative;
+  min-height: 600px;
+  width: 100%;
+  max-width: 100%;
 }
 
 .cytoscape-container {
   width: 100%;
   height: 100%;
   background: #fafafa;
+  border: 2px solid #ddd;
+  border-radius: 4px;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+/* 修复Cytoscape Canvas定位问题 */
+.cytoscape-container :deep(canvas) {
+  border: 2px dashed #ff6b6b !important;
+  box-sizing: border-box !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  z-index: 1 !important;
 }
 
 .property-panel {
@@ -468,3 +489,4 @@ onBeforeUnmount(() => {
   border-color: #667eea;
   box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
 }
+</style>
