@@ -12,7 +12,8 @@ import { join } from 'path';
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, 'public'),
       exclude: ['/api*', '/project*', '/workflow-graph*', '/task-node*'],
-      serveRoot: '/public',
+      //   serveRoot: '/public',
+      renderPath: '/',
     }),
     ProjectModule,
     WorkflowGraphModule,

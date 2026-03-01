@@ -5,24 +5,28 @@ import { FastifyAdapter } from '@nestjs/platform-fastify';
 import { apiReference } from '@scalar/nestjs-api-reference';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, new FastifyAdapter());
+    const app = await NestFactory.create(AppModule, new FastifyAdapter());
 
-  // 创建Swagger文档配置
-  const config = new DocumentBuilder()
-    .setTitle('FlowInOne API')
-    .setDescription('FlowInOne API文档')
-    .setVersion('1.0')
-    .build();
+    app.setGlobalPrefix('/api/v1');
 
-  // 创建Swagger文档
-  const document = SwaggerModule.createDocument(app, config);
-  app.use(
-    '/api-reference',
-    apiReference({
-      content: document,
-      withFastify: true,
-    }),
-  );
+    // 创建Swagger文档配置
+    const config = new DocumentBuilder()
+      .setTitle('FlowInOne API')
+      .setDescription('FlowInOne API文档')
+      .setVersion('1.0')
+      .build();
+
+    // 创建Swagger文档
+    const document = SwaggerModule.createDocument(app, config);
+    app.use(
+      '/api-reference',
+      apiReference({
+        content: document,
+        withFastify: true,
+      }),
+    );
+    
+    
 
   await app.listen(process.env.PORT ?? 5000, '0.0.0.0');
   console.log(`应用已在端口 ${process.env.PORT ?? 5000} 上启动`);

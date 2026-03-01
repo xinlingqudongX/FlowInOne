@@ -1,43 +1,28 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+// 主应用组件保持原有的欢迎页面功能
+import { ref } from 'vue'
 
 const features = ref([
-  {
-    name: '项目管理',
-    description: '创建和管理项目，跟踪进度，分配资源',
-    icon: '📊',
-  },
-  {
-    name: '工作流建模',
-    description: '可视化设计复杂的工作流程和业务逻辑',
-    icon: '🔄',
-  },
-  {
-    name: '任务节点',
-    description: '定义和配置各种任务节点，支持多种执行模式',
-    icon: '⚙️',
-  },
-  {
-    name: 'AI智能体',
-    description: '集成AI能力，自动化处理复杂任务',
-    icon: '🤖',
-  },
-]);
+  { name: '项目管理', description: '创建和管理项目，跟踪进度，分配资源', icon: '📊' },
+  { name: '工作流建模', description: '可视化设计复杂的工作流程和业务逻辑', icon: '🔄' },
+  { name: '任务节点', description: '定义和配置各种任务节点，支持多种执行模式', icon: '⚙️' },
+  { name: 'AI智能体', description: '集成AI能力，自动化处理复杂任务', icon: '🤖' }
+])
 
-const apiStatus = ref('检查中...');
+const apiStatus = ref('检查中...')
 
 //检查API状态
 fetch('/api-reference')
-  .then((response) => {
+  .then(response => {
     if (response.ok) {
-      apiStatus.value = 'API文档可用';
+      apiStatus.value = 'API文档可用'
     } else {
-      apiStatus.value = 'API文档不可用';
+      apiStatus.value = 'API文档不可用'
     }
   })
   .catch(() => {
-    apiStatus.value = '无法连接到API';
-  });
+    apiStatus.value = '无法连接到API'
+  })
 </script>
 
 <template>
@@ -46,32 +31,28 @@ fetch('/api-reference')
       <h1>🚀 FlowInOne工作流平台</h1>
       <p class="subtitle">现代化的工作流管理平台</p>
     </header>
-
+    
     <main class="main">
       <div class="welcome-card">
         <h2>欢迎使用 FlowInOne</h2>
-        <p>
-          FlowInOne
-          是一个现代化的工作流管理平台，帮助您高效地组织和执行复杂的业务流程。
-        </p>
+        <p>FlowInOne 是一个现代化的工作流管理平台，帮助您高效地组织和执行复杂的业务流程。</p>
         <div class="api-status">
-          <span
-            class="status-indicator"
-            :class="{
-              'status-ok': apiStatus.includes('可用'),
-              'status-error':
-                apiStatus.includes('不可用') || apiStatus.includes('无法连接'),
-            }"
-          ></span>
+          <span class="status-indicator" :class="{ 
+            'status-ok': apiStatus.includes('可用'), 
+            'status-error': apiStatus.includes('不可用') || apiStatus.includes('无法连接') 
+          }"></span>
           API状态: {{ apiStatus }}
         </div>
-        <a href="/api-reference" class="api-link">查看 API 文档</a>
+        <div class="navigation-links">
+          <a href="/api-reference" class="api-link">查看 API 文档</a>
+          <a href="/public/workflow.html" class="workflow-link">工作流编辑器</a>
+        </div>
       </div>
-
+      
       <div class="features-grid">
-        <div
-          v-for="feature in features"
-          :key="feature.name"
+        <div 
+          v-for="feature in features" 
+          :key="feature.name" 
           class="feature-card"
         >
           <div class="feature-icon">{{ feature.icon }}</div>
@@ -80,7 +61,7 @@ fetch('/api-reference')
         </div>
       </div>
     </main>
-
+    
     <footer class="footer">
       <p>FlowInOne &copy; 2026 - 现代化工作流平台</p>
     </footer>
@@ -155,28 +136,51 @@ fetch('/api-reference')
 }
 
 .status-ok {
-  background: #4caf50;
+  background: #4CAF50;
 }
 
 .status-error {
   background: #f44336;
 }
 
-.api-link {
+.navigation-links {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.api-link, .workflow-link {
   display: inline-block;
-  background: #667eea;
-  color: white;
   padding: 0.8rem 1.5rem;
   border-radius: 25px;
   text-decoration: none;
   font-weight: 500;
-  transition: background 0.3s ease;
-  margin-top: 1rem;
+  transition: all 0.3s ease;
+}
+
+.api-link {
+  background: #667eea;
+  color: white;
+}
+
+.workflow-link {
+  background: #4CAF50;
+  color: white;
+}
+
+.api-link:hover, .workflow-link:hover {
+  text-decoration: none;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .api-link:hover {
   background: #5a6fd8;
-  text-decoration: none;
+  color: white;
+}
+
+.workflow-link:hover {
+  background: #45a049;
   color: white;
 }
 
@@ -192,9 +196,7 @@ fetch('/api-reference')
   border-radius: 10px;
   padding: 1.5rem;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  transition:
-    transform 0.3s ease,
-    box-shadow 0.3s ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .feature-card:hover {
