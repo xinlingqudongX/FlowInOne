@@ -23,6 +23,9 @@ export class ProjectEntity {
   @Property({ type: 'json' })
   techStack!: Record<string, any>;
 
+  @Property({ type: 'json', nullable: true })
+  workflowJson?: Record<string, any>;
+
   @Property()
   createdAt: Date = new Date();
 

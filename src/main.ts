@@ -3,11 +3,13 @@ import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 import { apiReference } from '@scalar/nestjs-api-reference';
+import { ZodValidationPipe } from 'nestjs-zod';
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule, new FastifyAdapter());
 
     app.setGlobalPrefix('/api/v1');
+    app.useGlobalPipes(new ZodValidationPipe());
 
     // 创建Swagger文档配置
     const config = new DocumentBuilder()

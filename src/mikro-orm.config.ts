@@ -1,12 +1,19 @@
-import { Options } from '@mikro-orm/core';
-import { SqliteDriver } from '@mikro-orm/sqlite';
+import { SqliteDriver, defineConfig } from '@mikro-orm/sqlite';
+import { ProjectEntity } from './project/entities/project.entity';
+import { ProjectAsset } from './project/entities/project-asset.entity';
 
-const config: Options<SqliteDriver> = {
+export default defineConfig({
+  allowGlobalContext: true,
   driver: SqliteDriver,
   dbName: 'database.sqlite',
-  debug: true,
-  entities: ['./dist/**/*.entity.js', './src/**/*.entity.ts'],
-  entitiesTs: ['./src/**/*.entity.ts'],
-};
-
-export default config;
+  entities: [ProjectEntity,ProjectAsset],
+  dynamicImportProvider: (id) => require(id),
+  migrations:{
+    transactional: true,
+    snapshot: false,
+  },
+  schemaGenerator: {
+    disableForeignKeys: true,
+    createForeignKeyConstraints: false,
+  }
+})

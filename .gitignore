@@ -3,7 +3,8 @@
 /node_modules
 /build
 /public
-
+.qoder
+.trae
 # Logs
 logs
 *.log

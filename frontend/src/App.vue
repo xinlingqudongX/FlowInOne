@@ -1,34 +1,207 @@
 <script setup lang="ts">
-// 主应用组件保持原有的欢迎页面功能
-import { ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import WorkflowEditor from './components/WorkflowEditor.vue'
 
-const features = ref([
-  { name: '项目管理', description: '创建和管理项目，跟踪进度，分配资源', icon: '📊' },
-  { name: '工作流建模', description: '可视化设计复杂的工作流程和业务逻辑', icon: '🔄' },
-  { name: '任务节点', description: '定义和配置各种任务节点，支持多种执行模式', icon: '⚙️' },
-  { name: 'AI智能体', description: '集成AI能力，自动化处理复杂任务', icon: '🤖' }
-])
-
-const apiStatus = ref('检查中...')
-const showWorkflowEditor = ref(false)
-
-//检查API状态
-fetch('/api-reference')
-  .then(response => {
-    if (response.ok) {
-      apiStatus.value = 'API文档可用'
-    } else {
-      apiStatus.value = 'API文档不可用'
-    }
-  })
-  .catch(() => {
-    apiStatus.value = '无法连接到API'
-  })
-
-const toggleWorkflowEditor = () => {
-  showWorkflowEditor.value = !showWorkflowEditor.value
+interface WorkflowGraph {
+  elements: unknown[]
+  timestamp: string
 }
+
+interface ProjectSummary {
+  id: string
+  name: string
+  updatedAt?: string
+}
+
+interface ProjectDetail extends ProjectSummary {
+  description?: string
+  basePath?: string
+  techStack?: Record<string, unknown>
+  workflowJson?: WorkflowGraph | null
+  createdAt?: string
+}
+
+const apiBase = '/api/v1'
+
+const projects = ref<ProjectSummary[]>([])
+const selectedProject = ref<ProjectDetail | null>(null)
+const projectLoading = ref(false)
+const projectError = ref('')
+const workflowSaving = ref(false)
+const workflowError = ref('')
+const selectedWorkflow = ref<WorkflowGraph | null>(null)
+
+const newProject = reactive({
+  name: '',
+  description: '',
+  basePath: ''
+})
+
+const canEditWorkflow = computed(() => !!selectedProject.value)
+
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  return typeof value === 'object' && value !== null
+}
+
+const normalizeProject = (value: unknown): ProjectDetail | null => {
+  if (!isRecord(value)) return null
+  const id = typeof value.id === 'string' ? value.id : ''
+  const name = typeof value.name === 'string' ? value.name : ''
+  if (!id || !name) return null
+  return {
+    id,
+    name,
+    description: typeof value.description === 'string' ? value.description : undefined,
+    basePath: typeof value.basePath === 'string' ? value.basePath : undefined,
+    techStack: isRecord(value.techStack) ? value.techStack : undefined,
+    workflowJson: isRecord(value.workflowJson) && Array.isArray(value.workflowJson.elements)
+      ? { elements: value.workflowJson.elements, timestamp: typeof value.workflowJson.timestamp === 'string' ? value.workflowJson.timestamp : '' }
+      : null,
+    updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : undefined,
+    createdAt: typeof value.createdAt === 'string' ? value.createdAt : undefined
+  }
+}
+
+const fetchProjects = async () => {
+  projectLoading.value = true
+  projectError.value = ''
+  try {
+    const response = await fetch(`${apiBase}/project`)
+    if (!response.ok) {
+      projectError.value = '项目列表获取失败'
+      projects.value = []
+      return
+    }
+    const data: unknown = await response.json()
+    if (!Array.isArray(data)) {
+      projectError.value = '项目列表格式错误'
+      projects.value = []
+      return
+    }
+    const normalized = data
+      .map(item => normalizeProject(item))
+      .filter((item): item is ProjectDetail => !!item)
+      .map(item => ({
+        id: item.id,
+        name: item.name,
+        updatedAt: item.updatedAt
+      }))
+    projects.value = normalized
+  } catch (error) {
+    projectError.value = '项目列表获取失败'
+    projects.value = []
+  } finally {
+    projectLoading.value = false
+  }
+}
+
+const fetchProjectDetail = async (projectId: string) => {
+  projectLoading.value = true
+  projectError.value = ''
+  try {
+    const response = await fetch(`${apiBase}/project/${projectId}`)
+    if (!response.ok) {
+      projectError.value = '项目详情获取失败'
+      return null
+    }
+    const data: unknown = await response.json()
+    return normalizeProject(data)
+  } catch (error) {
+    projectError.value = '项目详情获取失败'
+    return null
+  } finally {
+    projectLoading.value = false
+  }
+}
+
+const createProject = async () => {
+  if (!newProject.name.trim()) return
+  projectLoading.value = true
+  projectError.value = ''
+  try {
+    const response = await fetch(`${apiBase}/project`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: newProject.name.trim(),
+        description: newProject.description.trim() || undefined,
+        basePath: newProject.basePath.trim() || '',
+        techStack: {}
+      })
+    })
+    if (!response.ok) {
+      projectError.value = '项目创建失败'
+      return
+    }
+    const data: unknown = await response.json()
+    const project = normalizeProject(data)
+    if (project) {
+      selectedProject.value = project
+      selectedWorkflow.value = project.workflowJson ?? null
+    }
+    newProject.name = ''
+    newProject.description = ''
+    newProject.basePath = ''
+    await fetchProjects()
+  } catch (error) {
+    projectError.value = '项目创建失败'
+  } finally {
+    projectLoading.value = false
+  }
+}
+
+const selectProject = async (projectId: string) => {
+  const detail = await fetchProjectDetail(projectId)
+  if (detail) {
+    selectedProject.value = detail
+    selectedWorkflow.value = detail.workflowJson ?? null
+  }
+}
+
+const saveWorkflow = async (graph: WorkflowGraph) => {
+  if (!selectedProject.value) return
+  workflowSaving.value = true
+  workflowError.value = ''
+  try {
+    const response = await fetch(`${apiBase}/project/${selectedProject.value.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        workflowJson: graph
+      })
+    })
+    if (!response.ok) {
+      workflowError.value = '工作流保存失败'
+      return
+    }
+    const data: unknown = await response.json()
+    const updated = normalizeProject(data)
+    if (updated) {
+      selectedProject.value = updated
+      selectedWorkflow.value = updated.workflowJson ?? graph
+      await fetchProjects()
+    }
+  } catch (error) {
+    workflowError.value = '工作流保存失败'
+  } finally {
+    workflowSaving.value = false
+  }
+}
+
+const reloadWorkflow = () => {
+  selectedWorkflow.value = selectedProject.value?.workflowJson ?? null
+}
+
+const formatTime = (value?: string) => {
+  if (!value) return '未更新'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '未更新'
+  return date.toLocaleString()
+}
+
+onMounted(() => {
+  fetchProjects()
+})
 </script>
 
 <template>
@@ -39,42 +212,65 @@ const toggleWorkflowEditor = () => {
     </header>
     
     <main class="main">
-      <div v-if="!showWorkflowEditor">
-        <div class="welcome-card">
-          <h2>欢迎使用 FlowInOne</h2>
-          <p>FlowInOne 是一个现代化的工作流管理平台，帮助您高效地组织和执行复杂的业务流程。</p>
-          <div class="api-status">
-            <span class="status-indicator" :class="{ 
-              'status-ok': apiStatus.includes('可用'), 
-              'status-error': apiStatus.includes('不可用') || apiStatus.includes('无法连接') 
-            }"></span>
-            API状态: {{ apiStatus }}
+      <div class="dashboard">
+        <section class="project-panel">
+          <div class="panel-header">
+            <h2>项目管理</h2>
+            <button class="btn btn-secondary" :disabled="projectLoading" @click="fetchProjects">刷新</button>
           </div>
-          <div class="navigation-links">
-            <a href="/api-reference" class="api-link">查看 API 文档</a>
-            <button @click="toggleWorkflowEditor" class="workflow-button">工作流编辑器</button>
+          <form class="project-form" @submit.prevent="createProject">
+            <div class="form-group">
+              <label>项目名称</label>
+              <input v-model="newProject.name" placeholder="请输入项目名称" />
+            </div>
+            <div class="form-group">
+              <label>项目描述</label>
+              <input v-model="newProject.description" placeholder="可选" />
+            </div>
+            <div class="form-group">
+              <label>项目路径</label>
+              <input v-model="newProject.basePath" placeholder="可选" />
+            </div>
+            <button class="btn btn-primary" type="submit" :disabled="projectLoading || !newProject.name.trim()">创建项目</button>
+            <p v-if="projectError" class="status-text error-text">{{ projectError }}</p>
+          </form>
+          <div class="project-list">
+            <button
+              v-for="project in projects"
+              :key="project.id"
+              class="project-item"
+              :class="{ active: selectedProject && selectedProject.id === project.id }"
+              @click="selectProject(project.id)"
+            >
+              <div class="project-name">{{ project.name }}</div>
+              <div class="project-meta">更新时间：{{ formatTime(project.updatedAt) }}</div>
+            </button>
           </div>
-        </div>
-        
-        <div class="features-grid">
-          <div 
-            v-for="feature in features" 
-            :key="feature.name" 
-            class="feature-card"
-          >
-            <div class="feature-icon">{{ feature.icon }}</div>
-            <h3>{{ feature.name }}</h3>
-            <p>{{ feature.description }}</p>
+        </section>
+
+        <section class="workflow-panel">
+          <div class="panel-header">
+            <div>
+              <h2>工作流编辑器</h2>
+              <p class="panel-subtitle">{{ selectedProject ? selectedProject.name : '请选择项目' }}</p>
+            </div>
+            <div class="panel-actions">
+              <button class="btn btn-info" :disabled="!selectedProject" @click="reloadWorkflow">重新加载</button>
+            </div>
           </div>
-        </div>
-      </div>
-      
-      <div v-else class="workflow-container">
-        <div class="workflow-header">
-          <h2>工作流编辑器</h2>
-          <button @click="toggleWorkflowEditor" class="back-button">← 返回主页</button>
-        </div>
-        <WorkflowEditor />
+          <div v-if="workflowError" class="status-text error-text">{{ workflowError }}</div>
+          <div v-if="workflowSaving" class="status-text saving-text">保存中...</div>
+          <div v-if="canEditWorkflow" class="workflow-container">
+            <WorkflowEditor
+              :workflow-data="selectedWorkflow"
+              :project-name="selectedProject?.name"
+              @save="saveWorkflow"
+            />
+          </div>
+          <div v-else class="empty-state">
+            <p>请选择项目后开始编辑工作流</p>
+          </div>
+        </section>
       </div>
     </main>
     
@@ -113,169 +309,176 @@ const toggleWorkflowEditor = () => {
 }
 
 .main {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 2rem;
 }
 
-.welcome-card {
+.dashboard {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 2rem;
+}
+
+.project-panel,
+.workflow-panel {
   background: rgba(255, 255, 255, 0.95);
-  border-radius: 15px;
-  padding: 2rem;
-  margin-bottom: 2rem;
+  border-radius: 16px;
+  padding: 1.5rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.welcome-card h2 {
-  color: #333;
-  margin-top: 0;
-  border-bottom: 2px solid #667eea;
-  padding-bottom: 0.5rem;
-}
-
-.api-status {
-  display: flex;
-  align-items: center;
-  margin: 1rem 0;
-  padding: 0.5rem;
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 5px;
-}
-
-.status-indicator {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  margin-right: 0.5rem;
-}
-
-.status-ok {
-  background: #4CAF50;
-}
-
-.status-error {
-  background: #f44336;
-}
-
-.navigation-links {
-  display: flex;
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-.api-link {
-  display: inline-block;
-  padding: 0.8rem 1.5rem;
-  border-radius: 25px;
-  text-decoration: none;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  background: #667eea;
-  color: white;
-}
-
-.workflow-button {
-  padding: 0.8rem 1.5rem;
-  border: none;
-  border-radius: 25px;
-  background: #4CAF50;
-  color: white;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.api-link:hover, .workflow-button:hover {
-  text-decoration: none;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.api-link:hover {
-  background: #5a6fd8;
-  color: white;
-}
-
-.workflow-button:hover {
-  background: #45a049;
-  color: white;
-}
-
-.features-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
-  margin-top: 2rem;
-}
-
-.feature-card {
-  background: white;
-  border-radius: 10px;
-  padding: 1.5rem;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.feature-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-}
-
-.feature-icon {
-  font-size: 2.5rem;
-  margin-bottom: 1rem;
-}
-
-.feature-card h3 {
-  color: #667eea;
-  margin: 0 0 0.5rem 0;
-}
-
-.feature-card p {
-  color: #666;
-  margin: 0;
-  line-height: 1.5;
-}
-
-/* 工作流编辑器样式 */
-.workflow-container {
-  background: white;
-  border-radius: 15px;
-  overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  max-width: 100%;
-  width: 100%;
-}
-
-.workflow-header {
-  background: #667eea;
-  color: white;
-  padding: 1rem 2rem;
+.panel-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 1.5rem;
 }
 
-.workflow-header h2 {
+.panel-header h2 {
   margin: 0;
-  font-size: 1.5rem;
+  color: #333;
 }
 
-.back-button {
-  padding: 0.5rem 1rem;
-  border: 1px solid white;
-  border-radius: 20px;
-  background: transparent;
-  color: white;
-  cursor: pointer;
-  transition: all 0.3s ease;
+.panel-subtitle {
+  margin: 0.4rem 0 0;
+  color: #666;
+  font-size: 0.95rem;
 }
 
-.back-button:hover {
+.panel-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.project-form {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-weight: 500;
+  color: #555;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 0.95rem;
+}
+
+.project-list {
+  display: grid;
+  gap: 0.75rem;
+  max-height: 520px;
+  overflow-y: auto;
+  padding-right: 0.3rem;
+}
+
+.project-item {
+  text-align: left;
+  border: 1px solid #e5e5e5;
   background: white;
-  color: #667eea;
+  border-radius: 10px;
+  padding: 0.75rem 0.9rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.project-item:hover {
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.project-item.active {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.project-name {
+  font-weight: 600;
+  color: #333;
+}
+
+.project-meta {
+  margin-top: 0.35rem;
+  color: #777;
+  font-size: 0.85rem;
+}
+
+.workflow-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.workflow-container {
+  background: white;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  width: 100%;
+}
+
+.empty-state {
+  padding: 2rem;
+  text-align: center;
+  color: #666;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 12px;
+}
+
+.status-text {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.error-text {
+  color: #f44336;
+}
+
+.saving-text {
+  color: #2196F3;
+}
+
+.btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  color: white;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.btn-primary {
+  background: #667eea;
+}
+
+.btn-secondary {
+  background: #4CAF50;
+}
+
+.btn-info {
+  background: #2196F3;
 }
 
 .footer {

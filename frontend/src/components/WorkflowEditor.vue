@@ -3,17 +3,17 @@
     <div class="toolbar">
       <h3>工作流图编辑器</h3>
       <div class="tool-buttons">
-        <button @click="addNode('start')" class="btn btn-primary">
-          <span class="icon">▶️</span> 开始节点
+        <button @click="addNode('text')" class="btn btn-secondary">
+          <span class="icon">📝</span> 文本节点
         </button>
-        <button @click="addNode('task')" class="btn btn-secondary">
-          <span class="icon">⚙️</span> 任务节点
+        <button @click="addNode('image')" class="btn btn-info">
+          <span class="icon">🖼️</span> 图片节点
         </button>
-        <button @click="addNode('decision')" class="btn btn-warning">
-          <span class="icon">❓</span>决节点
+        <button @click="addNode('audio')" class="btn btn-info">
+          <span class="icon">🔊</span> 音频节点
         </button>
-        <button @click="addNode('end')" class="btn btn-success">
-          <span class="icon">⏹️</span> 结束节点
+        <button @click="addNode('video')" class="btn btn-info">
+          <span class="icon">🎬</span> 视频节点
         </button>
         <div class="divider"></div>
         <button @click="saveGraph" class="btn btn-info">
@@ -27,310 +27,305 @@
         </button>
       </div>
     </div>
-    
+
     <div class="editor-container">
-      <div class="graph-container">
-        <div ref="cyContainer" class="cytoscape-container"></div>
-      </div>
-      
-      <div class="property-panel" v-if="selectedNode">
-        <h4>节点属性</h4>
-        <div class="property-group">
-          <label>节点ID:</label>
-          <input v-model="selectedNode.data.id" readonly />
+      <div class="graph-container" @contextmenu.prevent>
+        <div ref="container" class="cytoplasm-container" @click="clearSelection">
+          <!-- SVG layer for edges -->
+          <svg class="edge-layer" :width="containerSize.width" :height="containerSize.height">
+            <defs>
+              <marker id="arrow" markerWidth="10" markerHeight="10" refX="10" refY="5" orient="auto">
+                <path d="M0,0 L10,5 L0,10 z" fill="#667eea" />
+              </marker>
+            </defs>
+            <line
+              v-for="edge in edges"
+              :key="edge.id"
+              :x1="getNodeCenter(edge.source).x"
+              :y1="getNodeCenter(edge.source).y"
+              :x2="getNodeCenter(edge.target).x"
+              :y2="getNodeCenter(edge.target).y"
+              stroke="#667eea"
+              stroke-width="3"
+              marker-end="url(#arrow)"
+            />
+          </svg>
+
+          <!-- Node overlays -->
+          <div class="node-overlay-layer">
+            <div
+              v-for="node in nodes"
+              :key="node.id"
+              class="node-overlay"
+              :class="`node-${node.type}`"
+              :style="getNodeStyle(node)"
+              @mousedown.stop.prevent="startDrag(node.id, $event)"
+              @contextmenu.prevent.stop="openContext($event, node.id)"
+            >
+              <div v-if="node.type === 'root'" class="node-card node-card-root">
+                <div class="node-root-label">{{ formatRootTitle(node.title) }}</div>
+              </div>
+
+              <div v-else class="node-card">
+                <div class="node-card-header">
+                  <span class="node-card-title">{{ getNodeHeaderTitle(node.type) }}</span>
+                  <select class="node-type-select" v-model="node.type" @change.stop="updateNodeType(node)">
+                    <option value="text">Text</option>
+                    <option value="image">Image</option>
+                    <option value="video">Video</option>
+                    <option value="audio">Audio</option>
+                  </select>
+                </div>
+
+                <div v-if="node.type === 'text'" class="node-card-body">
+                  <textarea class="node-textarea" v-model="node.config.textContent" maxlength="2000"></textarea>
+                  <div class="node-text-count">{{ (node.config.textContent || '').length }} / 2000</div>
+                </div>
+
+                <div v-else class="node-card-body node-media-body">
+                  <div class="node-media-icon">
+                    <span v-if="node.type === 'image'">🖼️</span>
+                    <span v-else-if="node.type === 'video'">▶️</span>
+                    <span v-else>🔊</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="property-group">
-          <label>节点名称:</label>
-          <input v-model="selectedNode.data.name" @input="updateNode" />
+
+        <div v-if="contextMenu.visible" class="context-menu" :style="{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }">
+          <button class="context-menu-item" @click="handleContextAdd('text')">增加文本子节点</button>
+          <button class="context-menu-item" @click="handleContextAdd('image')">增加图片子节点</button>
+          <button class="context-menu-item" @click="handleContextAdd('video')">增加视频子节点</button>
+          <button class="context-menu-item" @click="handleContextAdd('audio')">增加音频子节点</button>
+          <button class="context-menu-item danger" @click="handleContextDelete">删除节点</button>
         </div>
-        <div class="property-group">
-          <label>节点类型:</label>
-          <select v-model="selectedNode.data.type" @change="updateNode">
-            <option value="start">开始</option>
-            <option value="task">任务</option>
-            <option value="decision">决策</option>
-            <option value="end">结束</option>
-          </select>
-        </div>
-        <div class="property-group" v-if="selectedNode.data.type === 'task'">
-          <label>任务描述:</label>
-          <textarea v-model="selectedNode.data.description" @input="updateNode"></textarea>
-        </div>
-        <div class="property-group">
-          <label>状态:</label>
-          <select v-model="selectedNode.data.status" @change="updateNode">
-            <option value="pending">待处理</option>
-            <option value="running">运行中</option>
-            <option value="completed">已完成</option>
-            <option value="failed">失败</option>
-          </select>
-        </div>
-        <button @click="deleteNode" class="btn btn-danger btn-block">
-          <span class="icon">❌</span> 删除节点
-        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
-import cytoscape from 'cytoscape'
+import { ref, reactive, onMounted, onBeforeUnmount, watch } from 'vue'
 
-// 类型定义
-interface NodeData {
+type NodeType = 'root' | 'text' | 'image' | 'video' | 'audio'
+
+interface NodeConfig {
+  typeKey?: NodeType
+  textContent?: string
+  resourceName?: string
+  resourceUrl?: string
+}
+
+interface NodeItem {
   id: string
-  name: string
-  type: 'start' | 'task' | 'decision' | 'end'
-  description?: string
-  status: 'pending' | 'running' | 'completed' | 'failed'
-  [key: string]: any
+  title: string
+  type: NodeType
+  x: number
+  y: number
+  width: number
+  height: number
+  config: NodeConfig
 }
 
-// interface EdgeData {  //未使用
-//   id: string
-//   source: string
-//   target: string
-//   [key: string]: any
-// }
-
-//响应式数据
-const cyContainer = ref<HTMLDivElement>()
-const selectedNode = ref<{ data: NodeData } | null>(null)
-let cy: cytoscape.Core | null = null
-let nodeIdCounter = 1
-
-// 初始化Cytoscape
-const initCytoscape = () => {
-  if (!cyContainer.value) return
-  
-  cy = cytoscape({
-    container: cyContainer.value,
-    elements: [],
-    style: [
-      {
-        selector: 'node',
-        style: {
-          'width': 80,
-          'height': 80,
-          'background-color': '#667eea',
-          'label': 'data(name)',
-          'color': '#fff',
-          'text-valign': 'center',
-          'text-halign': 'center',
-          'font-size': 12,
-          'font-weight': 'bold',
-          'text-wrap': 'wrap',
-          'text-max-width': '70px'
-        }
-      },
-      {
-        selector: 'node[type = "start"]',
-        style: {
-          'shape': 'ellipse',
-          'background-color': '#4CAF50'
-        }
-      },
-      {
-        selector: 'node[type = "task"]',
-        style: {
-          'shape': 'rectangle',
-          'background-color': '#2196F3'
-        }
-      },
-      {
-        selector: 'node[type = "decision"]',
-        style: {
-          'shape': 'diamond',
-          'background-color': '#FF9800',
-          'width': 70,
-          'height': 70
-        }
-      },
-      {
-        selector: 'node[type = "end"]',
-        style: {
-          'shape': 'ellipse',
-          'background-color': '#f44336'
-        }
-      },
-      {
-        selector: 'node:selected',
-        style: {
-          'border-width': 3,
-          'border-color': '#FFD700',
-          'border-style': 'solid'
-        }
-      },
-      {
-        selector: 'edge',
-        style: {
-          'width': 3,
-          'line-color': '#667eea',
-          'target-arrow-color': '#667eea',
-          'target-arrow-shape': 'triangle',
-          'curve-style': 'bezier'
-        }
-      },
-      {
-        selector: 'edge:selected',
-        style: {
-          'width': 4,
-          'line-color': '#FFD700',
-          'target-arrow-color': '#FFD700'
-        }
-      }
-    ],
-    layout: {
-      name: 'preset'
-    }
-  })
-
-  // 事件绑定
-  setupEventListeners()
+interface EdgeItem {
+  id: string
+  source: string
+  target: string
 }
 
-// 设置事件监听器
-const setupEventListeners = () => {
-  if (!cy) return
+const props = defineProps<{
+  workflowData?: any | null
+  projectName?: string
+}>()
 
-  //点击事件
-  cy.on('tap', 'node', (event) => {
-    const node = event.target
-    selectedNode.value = {
-      data: node.data() as NodeData
-    }
-  })
+const emit = defineEmits<{
+  (e: 'save', payload: { elements: unknown[]; timestamp: string }): void
+}>()
 
-  // 图空白处点击，取消选择
-  cy.on('tap', (event) => {
-    if (event.target === cy) {
-      selectedNode.value = null
-    }
-  })
+const container = ref<HTMLDivElement | null>(null)
+const containerSize = ref({ width: 1200, height: 800 })
+const nodes = ref<NodeItem[]>([])
+const edges = ref<EdgeItem[]>([])
+let nodeCounter = 1
+let edgeCounter = 1
 
-  //拖节点事件
-  cy.on('drag', 'node', (event) => {
-    const node = event.target
-    //拖节点时动态监控信息
-    // note: not used in this snapshot line
-    //头 222: const newPos = node.position()
+const dragging = reactive({ id: '', offsetX: 0, offsetY: 0, active: false })
+const contextMenu = reactive({ visible: false, x: 0, y: 0, nodeId: '' })
 
-    // 更新节点属性面板的位置信息
-    if (selectedNode.value && selectedNode.value.data.id === node.id()) {
-      //这里可以更新节点的额外位置信息
-    }
-  })
-}
-
-// 添加节点方法
-const addNode = (type: 'start' | 'task' | 'decision' | 'end') => {
-  if (!cy) return
-
-  const nodeId = `node_${nodeIdCounter++}`
-  const nodeName = type === 'start' ? '开始' : 
-                  type === 'task' ? '任务' : 
-                  type === 'decision' ? '决策' : '结束'
-  
-  const nodeData: NodeData = {
-    id: nodeId,
-    name: `${nodeName} ${nodeIdCounter - 1}`,
-    type: type,
-    status: 'pending'
-  }
-
-  if (type === 'task') {
-    nodeData.description = '请输入任务描述'
-  }
-
-  cy.add({
-    group: 'nodes',
-    data: nodeData,
-    position: { x: 100 + Math.random() * 300, y: 100 + Math.random() * 300 }
-  })
-
-  // 自动选择新添加的节点
-  selectedNode.value = { data: nodeData }
-}
-
-// 更新节点属性
-const updateNode = () => {
-  if (!cy || !selectedNode.value) return
-  
-  const node = cy.getElementById(selectedNode.value.data.id)
-  if (node) {
-    node.data(selectedNode.value.data)
+const getNodeSize = (type: NodeType) => {
+  switch (type) {
+    case 'root': return { width: 180, height: 70 }
+    case 'text': return { width: 280, height: 210 }
+    default: return { width: 160, height: 120 }
   }
 }
 
-// 删除节点
-const deleteNode = () => {
-  if (!cy || !selectedNode.value) return
-  
-  const node = cy.getElementById(selectedNode.value.data.id)
-  if (node) {
-    node.remove()
-    selectedNode.value = null
-  }
+const formatRootTitle = (title: string) => (title || '项目').toUpperCase()
+const getNodeHeaderTitle = (type: NodeType) => ({ text: 'TEXT NODE', image: 'IMAGE NODE', video: 'VIDEO NODE', audio: 'AUDIO NODE' } as any)[type] || 'NODE'
+
+const ensureRoot = () => {
+  if (nodes.value.find(n => n.type === 'root')) return
+  const size = getNodeSize('root')
+  nodes.value.push({ id: 'node_root', title: props.projectName || '项目', type: 'root', x: 200, y: 120, width: size.width, height: size.height, config: { typeKey: 'root' } })
 }
 
-// 保存图
-const saveGraph = () => {
-  if (!cy) return
-  
-  const elements = cy.elements().jsons()
-  const graphData = {
-    elements: elements,
-    timestamp: new Date().toISOString()
-  }
-  
-  // 保存到localStorage作为示例
-  localStorage.setItem('workflowGraph', JSON.stringify(graphData))
-  
-  //这里可以调用后端API保存
-  alert('工作流图已保存!')
+const updateContainerSize = () => {
+  if (!container.value) return
+  const r = container.value.getBoundingClientRect()
+  containerSize.value.width = Math.max(r.width, 1)
+  containerSize.value.height = Math.max(r.height, 1)
 }
 
-// 加载图
-const loadGraph = () => {
-  if (!cy) return
-  
-  const savedData = localStorage.getItem('workflowGraph')
-  if (savedData) {
-    try {
-      const graphData = JSON.parse(savedData)
-      cy.elements().remove()
-      cy.add(graphData.elements)
-      alert('工作流图已加载!')
-    } catch (error) {
-      alert('加载失败: 数据格式错误')
-    }
-  } else {
-    alert('没有找到保存的工作流图')
-  }
-}
-
-//清空图
-const clearGraph = () => {
-  if (!cy || !confirm('确定要清空所有节点吗？')) return
-  
-  cy.elements().remove()
-  selectedNode.value = null
-  nodeIdCounter = 1
-  // edgeIdCounter = 1  //未时未使用
-}
-
-//组件生命周期
 onMounted(() => {
-  initCytoscape()
+  updateContainerSize()
+  window.addEventListener('resize', updateContainerSize)
+  ensureRoot()
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
+  document.addEventListener('click', () => { contextMenu.visible = false })
 })
 
 onBeforeUnmount(() => {
-  if (cy) {
-    cy.destroy()
-    cy = null
-  }
+  window.removeEventListener('resize', updateContainerSize)
+  document.removeEventListener('mousemove', onMouseMove)
+  document.removeEventListener('mouseup', onMouseUp)
 })
+
+watch(() => props.workflowData, (value) => {
+  if (!value || !Array.isArray(value.elements)) return
+  nodes.value = []
+  edges.value = []
+  value.elements.forEach((el: any) => {
+    if (el.group === 'nodes') {
+      const pos = el.position || { x: 100, y: 100 }
+      const type: NodeType = el.data?.type || 'text'
+      const size = getNodeSize(type)
+      nodes.value.push({ id: el.data?.id || `node_${nodeCounter++}`, title: el.data?.title || el.data?.name || '节点', type, x: pos.x, y: pos.y, width: size.width, height: size.height, config: el.data?.config || {} })
+    }
+    if (el.group === 'edges') {
+      edges.value.push({ id: el.data?.id || `edge_${edgeCounter++}`, source: el.data?.source, target: el.data?.target })
+    }
+  })
+  ensureRoot()
+}, { immediate: true })
+
+const getNodeById = (id: string) => nodes.value.find(n => n.id === id)
+
+const getNodeCenter = (id: string) => {
+  const n = getNodeById(id)
+  if (!n) return { x: 0, y: 0 }
+  return { x: n.x, y: n.y }
+}
+
+const getNodeStyle = (node: NodeItem) => ({
+  width: `${node.width}px`,
+  height: `${node.height}px`,
+  left: `${node.x}px`,
+  top: `${node.y}px`,
+  transform: 'translate(-50%, -50%)'
+})
+
+const startDrag = (id: string, e: MouseEvent) => {
+  const n = getNodeById(id)
+  if (!n || !container.value) return
+  const rect = container.value.getBoundingClientRect()
+  dragging.id = id
+  dragging.active = true
+  dragging.offsetX = e.clientX - rect.left - n.x
+  dragging.offsetY = e.clientY - rect.top - n.y
+}
+
+const onMouseMove = (e: MouseEvent) => {
+  if (!dragging.active) return
+  const n = getNodeById(dragging.id)
+  if (!n || !container.value) return
+  const rect = container.value.getBoundingClientRect()
+  n.x = e.clientX - rect.left - dragging.offsetX
+  n.y = e.clientY - rect.top - dragging.offsetY
+}
+
+const onMouseUp = () => {
+  dragging.active = false
+  dragging.id = ''
+}
+
+const addNode = (type: NodeType, position?: { x: number; y: number }, parentId?: string) => {
+  const id = `node_${nodeCounter++}`
+  const size = getNodeSize(type)
+  const pos = position ?? { x: 150 + Math.random() * 300, y: 150 + Math.random() * 300 }
+  nodes.value.push({ id, title: `${type.toUpperCase()} ${id}`, type, x: pos.x, y: pos.y, width: size.width, height: size.height, config: getDefaultConfig(type) as any })
+  if (parentId) createEdge(parentId, id)
+}
+
+const createEdge = (source: string, target: string) => {
+  if (edges.value.find(e => e.source === source && e.target === target)) return
+  edges.value.push({ id: `edge_${edgeCounter++}`, source, target })
+}
+
+const getDefaultConfig = (type: NodeType) => {
+  switch (type) {
+    case 'text': return { typeKey: 'text', textContent: '' }
+    case 'image': return { typeKey: 'image', resourceName: '', resourceUrl: '' }
+    case 'video': return { typeKey: 'video', resourceName: '', resourceUrl: '' }
+    case 'audio': return { typeKey: 'audio', resourceName: '', resourceUrl: '' }
+    default: return { typeKey: type }
+  }
+}
+
+const handleContextAdd = (type: NodeType) => {
+  if (!contextMenu.nodeId) return
+  const parent = contextMenu.nodeId
+  addNode(type, undefined, parent)
+  contextMenu.visible = false
+}
+
+const handleContextDelete = () => {
+  if (!contextMenu.nodeId) return
+  const id = contextMenu.nodeId
+  const n = getNodeById(id)
+  if (!n) return
+  if (n.type === 'root') { alert('根节点不可删除'); contextMenu.visible = false; return }
+  nodes.value = nodes.value.filter(i => i.id !== id)
+  edges.value = edges.value.filter(e => e.source !== id && e.target !== id)
+  contextMenu.visible = false
+}
+
+const openContext = (e: MouseEvent, nodeId: string) => {
+  contextMenu.x = e.clientX
+  contextMenu.y = e.clientY
+  contextMenu.visible = true
+  contextMenu.nodeId = nodeId
+}
+
+const clearSelection = () => { contextMenu.visible = false }
+
+const saveGraph = () => {
+  const elements: any[] = []
+  nodes.value.forEach(n => elements.push({ group: 'nodes', data: { id: n.id, name: n.title, title: n.title, type: n.type, status: 'pending', config: n.config }, position: { x: n.x, y: n.y } }))
+  edges.value.forEach(e => elements.push({ group: 'edges', data: { id: e.id, source: e.source, target: e.target } }))
+  emit('save', { elements, timestamp: new Date().toISOString() })
+}
+
+const updateNodeType = (node: NodeItem) => {
+  const size = getNodeSize(node.type)
+  node.width = size.width; node.height = size.height
+    node.config = getDefaultConfig(node.type) as any;
+}
+
+const loadGraph = () => {
+  // watcher will handle reloading from props.workflowData
+}
+
+const clearGraph = () => {
+  if (!confirm('确定要清空所有节点吗？')) return
+  nodes.value = []
+  edges.value = []
+  nodeCounter = 1
+  edgeCounter = 1
+  ensureRoot()
+}
 </script>
 
 <style scoped>
@@ -418,7 +413,7 @@ onBeforeUnmount(() => {
   max-width: 100%;
 }
 
-.cytoscape-container {
+.cytoplasm-container {
   width: 100%;
   height: 100%;
   background: #fafafa;
@@ -427,66 +422,156 @@ onBeforeUnmount(() => {
   box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.05);
   position: relative;
   overflow: hidden;
+  min-height: 600px;
 }
 
-/* 修复Cytoscape Canvas定位问题 */
-.cytoscape-container :deep(canvas) {
-  border: 2px dashed #ff6b6b !important;
-  box-sizing: border-box !important;
-  position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
-  z-index: 1 !important;
+.edge-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
 }
 
-.property-panel {
-  width: 300px;
-  background: #fff;
-  border-left: 1px solid #ddd;
-  padding: 1rem;
-  overflow-y: auto;
+.node-overlay-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
 }
 
-.property-panel h4 {
-  margin: 0 0 1rem 0;
-  color: #333;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 0.5rem;
+.node-overlay {
+  position: absolute;
+  pointer-events: auto;
 }
 
-.property-group {
-  margin-bottom: 1rem;
-}
-
-.property-group label {
-  display: block;
-  margin-bottom: 0.3rem;
-  font-weight: 500;
-  color: #555;
-  font-size: 0.9rem;
-}
-
-.property-group input,
-.property-group select,
-.property-group textarea {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 0.9rem;
+.node-overlay,
+.node-card {
   box-sizing: border-box;
 }
 
-.property-group textarea {
-  min-height: 80px;
-  resize: vertical;
+.node-card {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 2px solid #2e73b2;
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.property-group input:focus,
-.property-group select:focus,
-.property-group textarea:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+.node-card-header {
+  background: linear-gradient(180deg, #5aa6e6 0%, #2f7bbd 100%);
+  color: #fff;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
 }
+
+.node-card-title {
+  letter-spacing: 0.4px;
+}
+
+.node-type-select {
+  background: #ffffff;
+  border: 1px solid #c9d7ea;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 12px;
+  color: #2c3e50;
+}
+
+.node-card-body {
+  flex: 1;
+  padding: 10px;
+  background: #f9fbfd;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.node-textarea {
+  flex: 1;
+  border: 1px solid #cfd8e3;
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 12px;
+  resize: none;
+  background: #ffffff;
+  color: #2c3e50;
+}
+
+.node-text-count {
+  text-align: right;
+  font-size: 11px;
+  color: #7b8794;
+}
+
+.node-media-body {
+  align-items: center;
+  justify-content: center;
+}
+
+.node-media-icon {
+  width: 70px;
+  height: 55px;
+  border-radius: 12px;
+  border: 2px solid #cfd8e3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  color: #6b7c93;
+  background: #ffffff;
+}
+
+.node-card-root {
+  background: linear-gradient(180deg, #1f5d98 0%, #0e3f6f 100%);
+  border-radius: 14px;
+  border: 2px solid #0b3c66;
+  box-shadow: 0 14px 26px rgba(0, 0, 0, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+}
+
+.node-root-label {
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.context-menu {
+  position: absolute;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  z-index: 30;
+  min-width: 140px;
+}
+
+.context-menu-item {
+  border: none;
+  background: transparent;
+  padding: 0.6rem 0.9rem;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.context-menu-item:hover { background: rgba(102,126,234,0.08); }
+.context-menu-item.danger { color: #f44336 }
+
 </style>
