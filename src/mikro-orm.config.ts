@@ -1,19 +1,19 @@
-import { SqliteDriver, defineConfig } from '@mikro-orm/sqlite';
+import { BetterSqliteDriver, defineConfig } from '@mikro-orm/better-sqlite';
 import { ProjectEntity } from './project/entities/project.entity';
 import { ProjectAsset } from './project/entities/project-asset.entity';
 
 export default defineConfig({
   allowGlobalContext: true,
-  driver: SqliteDriver,
+  driver: BetterSqliteDriver,
   dbName: 'database.sqlite',
-  entities: [ProjectEntity,ProjectAsset],
+  entities: [ProjectEntity, ProjectAsset],
   dynamicImportProvider: (id) => require(id),
-  migrations:{
+  migrations: {
     transactional: true,
     snapshot: false,
   },
   schemaGenerator: {
     disableForeignKeys: true,
     createForeignKeyConstraints: false,
-  }
-})
+  },
+});

@@ -1,207 +1,272 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
-import WorkflowEditor from './components/WorkflowEditor.vue'
+import { computed, onMounted, reactive, ref } from 'vue';
+import WorkflowEditor from './components/WorkflowEditor.vue';
 
 interface WorkflowGraph {
-  elements: unknown[]
-  timestamp: string
+  elements: unknown[];
+  timestamp: string;
 }
 
 interface ProjectSummary {
-  id: string
-  name: string
-  updatedAt?: string
+  id: string;
+  name: string;
+  updatedAt?: string;
 }
 
 interface ProjectDetail extends ProjectSummary {
-  description?: string
-  basePath?: string
-  techStack?: Record<string, unknown>
-  workflowJson?: WorkflowGraph | null
-  createdAt?: string
+  description?: string;
+  basePath?: string;
+  techStack?: Record<string, unknown>;
+  workflowJson?: WorkflowGraph | null;
+  createdAt?: string;
 }
 
-const apiBase = '/api/v1'
+const apiBase = '/api/v1';
 
-const projects = ref<ProjectSummary[]>([])
-const selectedProject = ref<ProjectDetail | null>(null)
-const projectLoading = ref(false)
-const projectError = ref('')
-const workflowSaving = ref(false)
-const workflowError = ref('')
-const selectedWorkflow = ref<WorkflowGraph | null>(null)
+const projects = ref<ProjectSummary[]>([]);
+const selectedProject = ref<ProjectDetail | null>(null);
+const projectLoading = ref(false);
+const projectError = ref('');
+const workflowSaving = ref(false);
+const workflowError = ref('');
+const selectedWorkflow = ref<WorkflowGraph | null>(null);
 
 const newProject = reactive({
   name: '',
   description: '',
-  basePath: ''
-})
+  basePath: '',
+});
 
-const canEditWorkflow = computed(() => !!selectedProject.value)
+const isEditingProject = ref(false);
+const editingProjectId = ref('');
+
+const canEditWorkflow = computed(() => !!selectedProject.value);
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
-  return typeof value === 'object' && value !== null
-}
+  return typeof value === 'object' && value !== null;
+};
 
 const normalizeProject = (value: unknown): ProjectDetail | null => {
-  if (!isRecord(value)) return null
-  const id = typeof value.id === 'string' ? value.id : ''
-  const name = typeof value.name === 'string' ? value.name : ''
-  if (!id || !name) return null
+  if (!isRecord(value)) return null;
+  const id = typeof value.id === 'string' ? value.id : '';
+  const name = typeof value.name === 'string' ? value.name : '';
+  if (!id || !name) return null;
   return {
     id,
     name,
-    description: typeof value.description === 'string' ? value.description : undefined,
+    description:
+      typeof value.description === 'string' ? value.description : undefined,
     basePath: typeof value.basePath === 'string' ? value.basePath : undefined,
     techStack: isRecord(value.techStack) ? value.techStack : undefined,
-    workflowJson: isRecord(value.workflowJson) && Array.isArray(value.workflowJson.elements)
-      ? { elements: value.workflowJson.elements, timestamp: typeof value.workflowJson.timestamp === 'string' ? value.workflowJson.timestamp : '' }
-      : null,
-    updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : undefined,
-    createdAt: typeof value.createdAt === 'string' ? value.createdAt : undefined
-  }
-}
+    workflowJson:
+      isRecord(value.workflowJson) && Array.isArray(value.workflowJson.elements)
+        ? {
+            elements: value.workflowJson.elements,
+            timestamp:
+              typeof value.workflowJson.timestamp === 'string'
+                ? value.workflowJson.timestamp
+                : '',
+          }
+        : null,
+    updatedAt:
+      typeof value.updatedAt === 'string' ? value.updatedAt : undefined,
+    createdAt:
+      typeof value.createdAt === 'string' ? value.createdAt : undefined,
+  };
+};
 
 const fetchProjects = async () => {
-  projectLoading.value = true
-  projectError.value = ''
+  projectLoading.value = true;
+  projectError.value = '';
   try {
-    const response = await fetch(`${apiBase}/project`)
+    const response = await fetch(`${apiBase}/project`);
     if (!response.ok) {
-      projectError.value = '项目列表获取失败'
-      projects.value = []
-      return
+      projectError.value = '项目列表获取失败';
+      projects.value = [];
+      return;
     }
-    const data: unknown = await response.json()
+    const data: unknown = await response.json();
     if (!Array.isArray(data)) {
-      projectError.value = '项目列表格式错误'
-      projects.value = []
-      return
+      projectError.value = '项目列表格式错误';
+      projects.value = [];
+      return;
     }
     const normalized = data
-      .map(item => normalizeProject(item))
+      .map((item) => normalizeProject(item))
       .filter((item): item is ProjectDetail => !!item)
-      .map(item => ({
+      .map((item) => ({
         id: item.id,
         name: item.name,
-        updatedAt: item.updatedAt
-      }))
-    projects.value = normalized
+        updatedAt: item.updatedAt,
+      }));
+    projects.value = normalized;
   } catch (error) {
-    projectError.value = '项目列表获取失败'
-    projects.value = []
+    projectError.value = '项目列表获取失败';
+    projects.value = [];
   } finally {
-    projectLoading.value = false
+    projectLoading.value = false;
   }
-}
+};
 
 const fetchProjectDetail = async (projectId: string) => {
-  projectLoading.value = true
-  projectError.value = ''
+  projectLoading.value = true;
+  projectError.value = '';
   try {
-    const response = await fetch(`${apiBase}/project/${projectId}`)
+    const response = await fetch(`${apiBase}/project/${projectId}`);
     if (!response.ok) {
-      projectError.value = '项目详情获取失败'
-      return null
+      projectError.value = '项目详情获取失败';
+      return null;
     }
-    const data: unknown = await response.json()
-    return normalizeProject(data)
+    const data: unknown = await response.json();
+    return normalizeProject(data);
   } catch (error) {
-    projectError.value = '项目详情获取失败'
-    return null
+    projectError.value = '项目详情获取失败';
+    return null;
   } finally {
-    projectLoading.value = false
+    projectLoading.value = false;
   }
-}
+};
 
-const createProject = async () => {
-  if (!newProject.name.trim()) return
-  projectLoading.value = true
-  projectError.value = ''
+const createOrUpdateProject = async () => {
+  if (!newProject.name.trim()) return;
+  projectLoading.value = true;
+  projectError.value = '';
   try {
-    const response = await fetch(`${apiBase}/project`, {
-      method: 'POST',
+    const url = isEditingProject.value 
+      ? `${apiBase}/project/${editingProjectId.value}` 
+      : `${apiBase}/project`;
+    const method = isEditingProject.value ? 'PATCH' : 'POST';
+
+    const response = await fetch(url, {
+      method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: newProject.name.trim(),
         description: newProject.description.trim() || undefined,
         basePath: newProject.basePath.trim() || '',
-        techStack: {}
-      })
-    })
+        techStack: {},
+      }),
+    });
     if (!response.ok) {
-      projectError.value = '项目创建失败'
-      return
+      projectError.value = isEditingProject.value ? '项目更新失败' : '项目创建失败';
+      return;
     }
-    const data: unknown = await response.json()
-    const project = normalizeProject(data)
+    const data: unknown = await response.json();
+    const project = normalizeProject(data);
     if (project) {
-      selectedProject.value = project
-      selectedWorkflow.value = project.workflowJson ?? null
+      selectedProject.value = project;
+      selectedWorkflow.value = project.workflowJson ?? null;
     }
-    newProject.name = ''
-    newProject.description = ''
-    newProject.basePath = ''
-    await fetchProjects()
+    cancelEditProject();
+    await fetchProjects();
   } catch (error) {
-    projectError.value = '项目创建失败'
+    projectError.value = isEditingProject.value ? '项目更新失败' : '项目创建失败';
   } finally {
-    projectLoading.value = false
+    projectLoading.value = false;
   }
-}
+};
+
+const editProjectData = async (projectId: string) => {
+  const detail = await fetchProjectDetail(projectId);
+  if (detail) {
+    isEditingProject.value = true;
+    editingProjectId.value = detail.id;
+    newProject.name = detail.name;
+    newProject.description = detail.description || '';
+    newProject.basePath = detail.basePath || '';
+  }
+};
+
+const cancelEditProject = () => {
+  isEditingProject.value = false;
+  editingProjectId.value = '';
+  newProject.name = '';
+  newProject.description = '';
+  newProject.basePath = '';
+};
+
+const deleteProjectConfirm = async (projectId: string) => {
+  if (!confirm('确定要删除该项目吗？这也会删除其关联的工作流数据。')) return;
+  projectLoading.value = true;
+  projectError.value = '';
+  try {
+    const response = await fetch(`${apiBase}/project/${projectId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      projectError.value = '项目删除失败';
+      return;
+    }
+    if (selectedProject.value?.id === projectId) {
+      selectedProject.value = null;
+      selectedWorkflow.value = null;
+    }
+    if (isEditingProject.value && editingProjectId.value === projectId) {
+      cancelEditProject();
+    }
+    await fetchProjects();
+  } catch (error) {
+    projectError.value = '项目删除失败';
+  } finally {
+    projectLoading.value = false;
+  }
+};
 
 const selectProject = async (projectId: string) => {
-  const detail = await fetchProjectDetail(projectId)
+  const detail = await fetchProjectDetail(projectId);
   if (detail) {
-    selectedProject.value = detail
-    selectedWorkflow.value = detail.workflowJson ?? null
+    selectedProject.value = detail;
+    selectedWorkflow.value = detail.workflowJson ?? null;
   }
-}
+};
 
 const saveWorkflow = async (graph: WorkflowGraph) => {
-  if (!selectedProject.value) return
-  workflowSaving.value = true
-  workflowError.value = ''
+  if (!selectedProject.value) return;
+  workflowSaving.value = true;
+  workflowError.value = '';
   try {
-    const response = await fetch(`${apiBase}/project/${selectedProject.value.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        workflowJson: graph
-      })
-    })
+    const response = await fetch(
+      `${apiBase}/project/${selectedProject.value.id}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workflowJson: graph,
+        }),
+      },
+    );
     if (!response.ok) {
-      workflowError.value = '工作流保存失败'
-      return
+      workflowError.value = '工作流保存失败';
+      return;
     }
-    const data: unknown = await response.json()
-    const updated = normalizeProject(data)
+    const data: unknown = await response.json();
+    const updated = normalizeProject(data);
     if (updated) {
-      selectedProject.value = updated
-      selectedWorkflow.value = updated.workflowJson ?? graph
-      await fetchProjects()
+      selectedProject.value = updated;
+      selectedWorkflow.value = updated.workflowJson ?? graph;
+      await fetchProjects();
     }
   } catch (error) {
-    workflowError.value = '工作流保存失败'
+    workflowError.value = '工作流保存失败';
   } finally {
-    workflowSaving.value = false
+    workflowSaving.value = false;
   }
-}
+};
 
 const reloadWorkflow = () => {
-  selectedWorkflow.value = selectedProject.value?.workflowJson ?? null
-}
+  selectedWorkflow.value = selectedProject.value?.workflowJson ?? null;
+};
 
 const formatTime = (value?: string) => {
-  if (!value) return '未更新'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '未更新'
-  return date.toLocaleString()
-}
+  if (!value) return '未更新';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '未更新';
+  return date.toLocaleString();
+};
 
 onMounted(() => {
-  fetchProjects()
-})
+  fetchProjects();
+});
 </script>
 
 <template>
@@ -210,15 +275,25 @@ onMounted(() => {
       <h1>🚀 FlowInOne工作流平台</h1>
       <p class="subtitle">现代化的工作流管理平台</p>
     </header>
-    
+
     <main class="main">
       <div class="dashboard">
         <section class="project-panel">
           <div class="panel-header">
             <h2>项目管理</h2>
-            <button class="btn btn-secondary" :disabled="projectLoading" @click="fetchProjects">刷新</button>
+            <button
+              class="btn btn-secondary"
+              :disabled="projectLoading"
+              @click="fetchProjects"
+            >
+              刷新
+            </button>
           </div>
-          <form class="project-form" @submit.prevent="createProject">
+          <form class="project-form" @submit.prevent="createOrUpdateProject">
+            <div class="form-title">
+               {{ isEditingProject ? '编辑项目' : '新建项目' }}
+               <button v-if="isEditingProject" type="button" class="btn text-btn" @click="cancelEditProject">取消</button>
+            </div>
             <div class="form-group">
               <label>项目名称</label>
               <input v-model="newProject.name" placeholder="请输入项目名称" />
@@ -231,20 +306,38 @@ onMounted(() => {
               <label>项目路径</label>
               <input v-model="newProject.basePath" placeholder="可选" />
             </div>
-            <button class="btn btn-primary" type="submit" :disabled="projectLoading || !newProject.name.trim()">创建项目</button>
-            <p v-if="projectError" class="status-text error-text">{{ projectError }}</p>
+            <button
+              class="btn btn-primary"
+              type="submit"
+              :disabled="projectLoading || !newProject.name.trim()"
+            >
+              {{ isEditingProject ? '保存修改' : '创建项目' }}
+            </button>
+            <p v-if="projectError" class="status-text error-text">
+              {{ projectError }}
+            </p>
           </form>
           <div class="project-list">
-            <button
+            <div
               v-for="project in projects"
               :key="project.id"
               class="project-item"
-              :class="{ active: selectedProject && selectedProject.id === project.id }"
+              :class="{
+                active: selectedProject && selectedProject.id === project.id,
+              }"
               @click="selectProject(project.id)"
             >
-              <div class="project-name">{{ project.name }}</div>
-              <div class="project-meta">更新时间：{{ formatTime(project.updatedAt) }}</div>
-            </button>
+              <div class="project-info">
+                <div class="project-name">{{ project.name }}</div>
+                <div class="project-meta">
+                  更新时间：{{ formatTime(project.updatedAt) }}
+                </div>
+              </div>
+              <div class="project-actions" @click.stop>
+                <button class="icon-btn edit-btn" @click="editProjectData(project.id)" title="编辑">✏️</button>
+                <button class="icon-btn delete-btn" @click="deleteProjectConfirm(project.id)" title="删除">🗑️</button>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -252,14 +345,26 @@ onMounted(() => {
           <div class="panel-header">
             <div>
               <h2>工作流编辑器</h2>
-              <p class="panel-subtitle">{{ selectedProject ? selectedProject.name : '请选择项目' }}</p>
+              <p class="panel-subtitle">
+                {{ selectedProject ? selectedProject.name : '请选择项目' }}
+              </p>
             </div>
             <div class="panel-actions">
-              <button class="btn btn-info" :disabled="!selectedProject" @click="reloadWorkflow">重新加载</button>
+              <button
+                class="btn btn-info"
+                :disabled="!selectedProject"
+                @click="reloadWorkflow"
+              >
+                重新加载
+              </button>
             </div>
           </div>
-          <div v-if="workflowError" class="status-text error-text">{{ workflowError }}</div>
-          <div v-if="workflowSaving" class="status-text saving-text">保存中...</div>
+          <div v-if="workflowError" class="status-text error-text">
+            {{ workflowError }}
+          </div>
+          <div v-if="workflowSaving" class="status-text saving-text">
+            保存中...
+          </div>
           <div v-if="canEditWorkflow" class="workflow-container">
             <WorkflowEditor
               :workflow-data="selectedWorkflow"
@@ -273,7 +378,7 @@ onMounted(() => {
         </section>
       </div>
     </main>
-    
+
     <footer class="footer">
       <p>FlowInOne &copy; 2026 - 现代化工作流平台</p>
     </footer>
@@ -309,9 +414,10 @@ onMounted(() => {
 }
 
 .main {
-  max-width: 1400px;
   margin: 0 auto;
   padding: 2rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .dashboard {
@@ -327,6 +433,9 @@ onMounted(() => {
   padding: 1.5rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 200px);
 }
 
 .panel-header {
@@ -376,9 +485,9 @@ onMounted(() => {
 .project-list {
   display: grid;
   gap: 0.75rem;
-  max-height: 520px;
   overflow-y: auto;
   padding-right: 0.3rem;
+  flex: 1;
 }
 
 .project-item {
@@ -410,6 +519,67 @@ onMounted(() => {
   margin-top: 0.35rem;
   color: #777;
   font-size: 0.85rem;
+}
+
+.project-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.project-info {
+  flex: 1;
+}
+
+.project-actions {
+  display: flex;
+  gap: 0.5rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.project-item:hover .project-actions {
+  opacity: 1;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0.2rem;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.icon-btn:hover {
+  opacity: 1;
+}
+
+.form-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.text-btn {
+  background: transparent;
+  color: #666;
+  padding: 0;
+  font-size: 0.85rem;
+  font-weight: normal;
+  text-decoration: underline;
+  box-shadow: none;
+}
+.text-btn:hover {
+  background: transparent;
+  color: #333;
+  box-shadow: none;
+  transform: none;
 }
 
 .workflow-panel {
@@ -444,7 +614,7 @@ onMounted(() => {
 }
 
 .saving-text {
-  color: #2196F3;
+  color: #2196f3;
 }
 
 .btn {
@@ -474,11 +644,11 @@ onMounted(() => {
 }
 
 .btn-secondary {
-  background: #4CAF50;
+  background: #4caf50;
 }
 
 .btn-info {
-  background: #2196F3;
+  background: #2196f3;
 }
 
 .footer {

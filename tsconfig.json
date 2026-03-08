@@ -18,7 +18,8 @@
     "noFallthroughCasesInSwitch": false,
     "rootDir": "./src",
     "resolveJsonModule": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "noUnusedLocals": false
   },
   "include": ["src/**/*", "!src/public/**/*"],
   "exclude": [
