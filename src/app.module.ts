@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ProjectModule } from './project/project.module';
+import { CollaborationModule } from './collaboration/collaboration.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { MikroOrmModule } from '@mikro-orm/nestjs';
@@ -17,6 +18,7 @@ import mikroOrmConfig from './mikro-orm.config';
       serveRoot: '/',
     }),
     ProjectModule,
+    CollaborationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,8 +1,54 @@
 <template>
   <div class="workflow-editor">
+    <!-- 协同功能组件 -->
+    <CollaborativeCursors
+      ref="cursorsRef"
+      :show-user-names="collaborationState.currentUser?.preferences?.showUserNames ?? true"
+      :container="container || undefined"
+      @cursor-click="handleCursorClick"
+    />
+    
+    <OnlineUsersList
+      v-if="collaborationEnabled"
+      :users="collaborationState.onlineUsers"
+      :current-user="currentUserForList"
+      :connection-state="collaborationState.connectionState"
+      :show-all-cursors="showAllCursors"
+      class="online-users-panel"
+      @edit-user="showUserConfig = true"
+      @focus-user="focusOnUser"
+      @toggle-user-cursor="toggleUserCursor"
+      @toggle-all-cursors="toggleAllCursors"
+      @reconnect="reconnectCollaboration"
+      @refresh-users="refreshUsers"
+    />
+
+    <!-- 用户配置对话框 -->
+    <UserConfigDialog
+      v-if="collaborationManager"
+      :visible="showUserConfig"
+      :user-manager="collaborationManager.getUserManager()"
+      @close="showUserConfig = false"
+      @save="handleUserConfigSave"
+    />
+
     <div class="toolbar">
       <h3>工作流图编辑器</h3>
       <div class="tool-buttons">
+        <!-- 协同功能按钮 -->
+        <button
+          v-if="collaborationEnabled"
+          @click="showUserConfig = true"
+          class="btn btn-info"
+          :title="`当前用户: ${collaborationState.currentUser?.displayName || '未设置'}`"
+        >
+          <span class="icon">👤</span> {{ collaborationState.currentUser?.displayName || '设置用户' }}
+        </button>
+        <div v-if="collaborationEnabled" class="connection-indicator" :class="connectionClass">
+          <span class="connection-dot"></span>
+          {{ connectionText }}
+        </div>
+        <div class="divider"></div>
         <button @click="addNode('text')" class="btn btn-secondary">
           <span class="icon">📝</span> 文本节点
         </button>
@@ -83,7 +129,7 @@
               :id="'node_' + node.id"
               :class="`node-${node.type}`"
               :style="getNodeStyle(node)"
-              v-resize="(w, h) => updateNodeSize(node, w, h)"
+              v-resize="(w: number, h: number) => updateNodeSize(node, w, h)"
               @mousedown.stop="startDrag(node.id, $event)"
               @contextmenu.prevent.stop="openContext($event, node.id)"
             >
@@ -241,7 +287,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onBeforeUnmount, watch } from 'vue';
+import { ref, reactive, onMounted, onBeforeUnmount, watch, nextTick, computed } from 'vue';
+import CollaborativeCursors from './CollaborativeCursors.vue';
+import OnlineUsersList from './OnlineUsersList.vue';
+import UserConfigDialog from './UserConfigDialog.vue';
+import { CollaborationManagerService } from '../services/collaboration-manager.service';
+import type { CollaborationState } from '../services/collaboration-manager.service';
+import type { User, CollaborationOperation } from '../services/collaboration.service';
+import type { UserConfig } from '../services/user-manager.service';
+import type { OperationConflict } from '../services/operation-sync.service';
+import { getWebSocketUrl } from '../config/websocket.config';
 
 type NodeType =
   | 'root'
@@ -283,6 +338,8 @@ interface EdgeItem {
 const props = defineProps<{
   workflowData?: any | null;
   projectName?: string;
+  collaborationEnabled?: boolean;
+  projectId?: string;
 }>();
 
 const emit = defineEmits<{
@@ -294,6 +351,21 @@ const containerSize = ref({ width: 1200, height: 800 });
 const nodes = ref<NodeItem[]>([]);
 const edges = ref<EdgeItem[]>([]);
 
+// 协同功能相关
+const collaborationManager = ref<CollaborationManagerService | null>(null);
+const collaborationState = ref<CollaborationState>({
+  isEnabled: false,
+  isConnected: false,
+  connectionState: 'disconnected',
+  currentUser: null,
+  onlineUsers: [],
+  pendingOperations: 0,
+  conflicts: 0,
+});
+const showUserConfig = ref(false);
+const showAllCursors = ref(true);
+const cursorsRef = ref<InstanceType<typeof CollaborativeCursors> | null>(null);
+
 const generateUniqueId = (prefix: string) => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return `${prefix}_${crypto.randomUUID()}`;
@@ -301,10 +373,62 @@ const generateUniqueId = (prefix: string) => {
   return `${prefix}_${Math.random().toString(36).substring(2, 9)}_${Date.now().toString(36)}`;
 };
 
-const dragging = reactive({ id: '', offsetX: 0, offsetY: 0, active: false });
+const dragging = reactive({ 
+  id: '', 
+  offsetX: 0, 
+  offsetY: 0, 
+  active: false,
+  lastBroadcastTime: 0,
+  broadcastThrottle: 100, // 100ms节流，避免过于频繁的广播
+});
 const contextMenu = reactive({ visible: false, x: 0, y: 0, nodeId: '' });
 
 const connectingSourceId = ref<string>('');
+
+// 协同功能计算属性
+const currentUserForList = computed(() => {
+  const currentUser = collaborationState.value.currentUser;
+  if (!currentUser) return null;
+  
+  return {
+    userId: currentUser.userId,
+    displayName: currentUser.displayName,
+    color: currentUser.color,
+    isOnline: true,
+    lastSeen: new Date(),
+  } as User;
+});
+
+const connectionClass = computed(() => {
+  switch (collaborationState.value.connectionState) {
+    case 'connected':
+      return 'connected';
+    case 'connecting':
+    case 'reconnecting':
+      return 'connecting';
+    case 'disconnected':
+      return 'disconnected';
+    default:
+      return 'unknown';
+  }
+});
+
+const connectionText = computed(() => {
+  const onlineCount = collaborationState.value.onlineUsers.length;
+  
+  switch (collaborationState.value.connectionState) {
+    case 'connected':
+      return `已连接 (${onlineCount}人在线)`;
+    case 'connecting':
+      return '连接中...';
+    case 'reconnecting':
+      return '重连中...';
+    case 'disconnected':
+      return '离线模式';
+    default:
+      return '未知状态';
+  }
+});
 
 const vResize = {
   mounted(el: HTMLElement, binding: any) {
@@ -382,12 +506,22 @@ onMounted(() => {
   document.addEventListener('click', () => {
     contextMenu.visible = false;
   });
+
+  // 初始化协同功能
+  if (props.collaborationEnabled && props.projectId) {
+    initializeCollaboration();
+  }
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', updateContainerSize);
   document.removeEventListener('mousemove', onMouseMove);
   document.removeEventListener('mouseup', onMouseUp);
+
+  // 清理协同功能
+  if (collaborationManager.value) {
+    collaborationManager.value.destroy();
+  }
 });
 
 watch(
@@ -503,10 +637,22 @@ const startDrag = (id: string, e: MouseEvent) => {
   dragging.active = true;
   dragging.offsetX = e.clientX - rect.left - n.x;
   dragging.offsetY = e.clientY - rect.top - n.y;
+  dragging.lastBroadcastTime = 0;
 
   // Bring to front
   nodes.value.forEach((node) => {
     node.zIndex = node.id === id ? 20 : 10;
+  });
+
+  // 广播拖拽开始
+  broadcastOperation({
+    type: 'node-update',
+    nodeId: id,
+    data: {
+      position: { x: n.x, y: n.y },
+      isDragging: true,
+      dragStart: true, // 标记为拖拽开始
+    },
   });
 };
 
@@ -514,14 +660,49 @@ const onMouseMove = (e: MouseEvent) => {
   if (!dragging.active) return;
   const n = getNodeById(dragging.id);
   if (!n || !container.value) return;
+  
   const rect = container.value.getBoundingClientRect();
-  n.x = e.clientX - rect.left - dragging.offsetX;
-  n.y = e.clientY - rect.top - dragging.offsetY;
+  const newX = e.clientX - rect.left - dragging.offsetX;
+  const newY = e.clientY - rect.top - dragging.offsetY;
+  
+  // 更新节点位置
+  n.x = newX;
+  n.y = newY;
+  
+  // 节流广播拖拽中的位置更新
+  const now = Date.now();
+  if (now - dragging.lastBroadcastTime > dragging.broadcastThrottle) {
+    broadcastOperation({
+      type: 'node-update',
+      nodeId: dragging.id,
+      data: {
+        position: { x: newX, y: newY },
+        isDragging: true, // 标记为拖拽中的更新
+      },
+    });
+    dragging.lastBroadcastTime = now;
+  }
 };
 
 const onMouseUp = () => {
+  if (dragging.active && dragging.id) {
+    const node = getNodeById(dragging.id);
+    if (node) {
+      // 广播节点位置更新（拖拽结束）
+      broadcastOperation({
+        type: 'node-update',
+        nodeId: dragging.id,
+        data: {
+          position: { x: node.x, y: node.y },
+          isDragging: false, // 标记为拖拽结束
+        },
+      });
+    }
+  }
+  
   dragging.active = false;
   dragging.id = '';
+  dragging.lastBroadcastTime = 0;
 };
 
 const addNode = (
@@ -535,7 +716,8 @@ const addNode = (
     x: 150 + Math.random() * 300,
     y: 150 + Math.random() * 300,
   };
-  nodes.value.push({
+  
+  const newNode: NodeItem = {
     id,
     title: `${type.toUpperCase()} ${id}`,
     type,
@@ -546,8 +728,27 @@ const addNode = (
     height: size.height,
     zIndex: 10,
     config: getDefaultConfig(type) as any,
+  };
+  
+  nodes.value.push(newNode);
+  
+  if (parentId) {
+    createEdge(parentId, id);
+  }
+
+  // 广播节点创建操作
+  broadcastOperation({
+    type: 'node-create',
+    nodeId: id,
+    data: {
+      title: newNode.title,
+      type: newNode.type,
+      status: newNode.status,
+      position: { x: pos.x, y: pos.y },
+      config: newNode.config,
+      parentId,
+    },
   });
-  if (parentId) createEdge(parentId, id);
 };
 
 const addProperty = (node: NodeItem) => {
@@ -566,7 +767,17 @@ const removeProperty = (node: NodeItem, index: number) => {
 const createEdge = (source: string, target: string) => {
   if (edges.value.find((e) => e.source === source && e.target === target))
     return;
-  edges.value.push({ id: generateUniqueId('edge'), source, target });
+  
+  const edgeId = generateUniqueId('edge');
+  const newEdge = { id: edgeId, source, target };
+  edges.value.push(newEdge);
+  
+  // 广播边创建操作
+  broadcastOperation({
+    type: 'edge-create',
+    edgeId: edgeId,
+    data: { source, target },
+  });
 };
 
 const getDefaultConfig = (type: NodeType) => {
@@ -607,8 +818,18 @@ const handleContextDelete = () => {
     contextMenu.visible = false;
     return;
   }
+  
+  // 删除节点和相关连接
   nodes.value = nodes.value.filter((i) => i.id !== id);
   edges.value = edges.value.filter((e) => e.source !== id && e.target !== id);
+  
+  // 广播删除操作
+  broadcastOperation({
+    type: 'node-delete',
+    nodeId: id,
+    data: {},
+  });
+  
   contextMenu.visible = false;
 };
 
@@ -702,7 +923,7 @@ const downloadJson = () => {
 
   const structNodes = nodes.value.map((n) => {
     const incomingEdges = edges.value.filter((e) => e.target === n.id);
-    const parentId = incomingEdges.length > 0 ? incomingEdges[0].source : null;
+    const parentId = incomingEdges.length > 0 ? incomingEdges[0]?.source || null : null;
     const outgoing = edges.value
       .filter((e) => e.source === n.id)
       .map((e) => e.target);
@@ -771,10 +992,385 @@ const downloadJson = () => {
 
 const clearGraph = () => {
   if (!confirm('确定要清空所有节点吗？')) return;
+  
+  // 广播清空操作
+  if (collaborationManager.value && collaborationState.value.isConnected) {
+    broadcastOperation({
+      type: 'node-delete',
+      data: { clearAll: true },
+    });
+  }
+  
   nodes.value = [];
   edges.value = [];
   ensureRoot();
 };
+
+// ==================== 协同功能方法 ====================
+
+/**
+ * 初始化协同功能
+ */
+async function initializeCollaboration(): Promise<void> {
+  if (!props.projectId) {
+    console.warn('无法初始化协同功能：缺少项目ID');
+    return;
+  }
+
+  try {
+    console.log('开始初始化协同功能...');
+    
+    collaborationManager.value = new CollaborationManagerService({
+      serverUrl: getWebSocketUrl(),
+      enabled: true,
+      autoConnect: true,
+    });
+
+    // 设置事件监听器
+    setupCollaborationEventHandlers();
+
+    // 等待DOM渲染完成
+    await nextTick();
+    
+    if (container.value) {
+      console.log('启动协同功能，项目ID:', props.projectId);
+      await collaborationManager.value.start(props.projectId, container.value);
+      console.log('协同功能启动成功');
+    } else {
+      console.error('容器元素未找到');
+    }
+
+  } catch (error) {
+    console.error('协同功能初始化失败:', error);
+  }
+}
+
+/**
+ * 设置协同功能事件处理器
+ */
+function setupCollaborationEventHandlers(): void {
+  if (!collaborationManager.value) return;
+
+  // 状态变化
+  collaborationManager.value.onStateChange((state) => {
+    console.log('协同状态更新:', {
+      isConnected: state.isConnected,
+      connectionState: state.connectionState,
+      onlineUsersCount: state.onlineUsers.length,
+      currentUser: state.currentUser?.displayName,
+    });
+    collaborationState.value = state;
+  });
+
+  // 用户加入
+  collaborationManager.value.onUserJoin((user) => {
+    console.log(`用户 ${user.displayName} 加入协作`);
+  });
+
+  // 用户离开
+  collaborationManager.value.onUserLeave((userId) => {
+    // 移除该用户的光标
+    if (cursorsRef.value) {
+      cursorsRef.value.removeCursor(userId);
+    }
+    console.log(`用户 ${userId} 离开协作`);
+  });
+
+  // 光标更新
+  collaborationManager.value.onCursorUpdate((userId, position) => {
+    const user = collaborationState.value.onlineUsers.find(u => u.userId === userId);
+    if (user && cursorsRef.value) {
+      cursorsRef.value.updateCursor(
+        userId,
+        user.displayName,
+        user.color || '#999',
+        position
+      );
+    }
+  });
+
+  // 操作接收
+  collaborationManager.value.onOperation((operation) => {
+    handleRemoteOperation(operation);
+  });
+
+  // 冲突检测
+  collaborationManager.value.onConflict((conflict) => {
+    handleOperationConflict(conflict);
+  });
+}
+
+/**
+ * 处理远程操作
+ */
+function handleRemoteOperation(operation: CollaborationOperation): void {
+  console.log('收到远程操作:', operation);
+
+  switch (operation.type) {
+    case 'node-create':
+      handleRemoteNodeCreate(operation);
+      break;
+    case 'node-update':
+      handleRemoteNodeUpdate(operation);
+      break;
+    case 'node-delete':
+      handleRemoteNodeDelete(operation);
+      break;
+    case 'edge-create':
+      handleRemoteEdgeCreate(operation);
+      break;
+    case 'edge-delete':
+      handleRemoteEdgeDelete(operation);
+      break;
+  }
+}
+
+/**
+ * 处理远程节点创建
+ */
+function handleRemoteNodeCreate(operation: CollaborationOperation): void {
+  const data = operation.data as any;
+  if (!data || !operation.nodeId) return;
+
+  // 检查节点是否已存在
+  if (getNodeById(operation.nodeId)) return;
+
+  const size = getNodeSize(data.type || 'text');
+  const newNode: NodeItem = {
+    id: operation.nodeId,
+    title: data.title || data.name || '远程节点',
+    type: data.type || 'text',
+    status: data.status || 'pending',
+    x: data.position?.x || 100,
+    y: data.position?.y || 100,
+    width: size.width,
+    height: size.height,
+    zIndex: 10,
+    config: data.config || getDefaultConfig(data.type || 'text'),
+  };
+
+  nodes.value.push(newNode);
+
+  // 如果有父节点，创建连接
+  if (data.parentId) {
+    createEdge(data.parentId, operation.nodeId);
+  }
+}
+
+/**
+ * 处理远程节点更新
+ */
+function handleRemoteNodeUpdate(operation: CollaborationOperation): void {
+  const data = operation.data as any;
+  if (!data || !operation.nodeId) return;
+
+  const node = getNodeById(operation.nodeId);
+  if (!node) return;
+
+  // 如果当前正在拖拽这个节点，忽略远程更新避免冲突
+  if (dragging.active && dragging.id === operation.nodeId) {
+    console.log(`忽略正在拖拽节点 ${operation.nodeId} 的远程更新`);
+    return;
+  }
+
+  // 更新节点属性
+  if (data.title !== undefined) node.title = data.title;
+  if (data.status !== undefined) node.status = data.status;
+  if (data.type !== undefined) node.type = data.type;
+  if (data.config !== undefined) node.config = { ...node.config, ...data.config };
+  
+  // 更新节点位置
+  if (data.position) {
+    node.x = data.position.x;
+    node.y = data.position.y;
+    
+    // 如果是拖拽相关的更新，添加视觉反馈
+    if (data.isDragging) {
+      const nodeElement = document.getElementById(`node_${operation.nodeId}`);
+      if (nodeElement) {
+        if (data.dragStart) {
+          // 拖拽开始
+          nodeElement.classList.add('remote-drag-start');
+          setTimeout(() => {
+            nodeElement.classList.remove('remote-drag-start');
+            nodeElement.classList.add('remote-dragging');
+          }, 200);
+        } else {
+          // 拖拽中
+          nodeElement.classList.add('remote-dragging');
+        }
+        
+        // 拖拽结束时移除样式
+        if (!data.isDragging) {
+          nodeElement.classList.remove('remote-dragging', 'remote-drag-start');
+        }
+      }
+    } else {
+      // 非拖拽更新，移除拖拽样式
+      const nodeElement = document.getElementById(`node_${operation.nodeId}`);
+      if (nodeElement) {
+        nodeElement.classList.remove('remote-dragging', 'remote-drag-start');
+      }
+    }
+    
+    const dragStatus = data.dragStart ? ' [开始拖拽]' : data.isDragging ? ' [拖拽中]' : ' [拖拽结束]';
+    console.log(`远程更新节点 ${operation.nodeId} 位置: (${data.position.x}, ${data.position.y})${data.isDragging || data.dragStart ? dragStatus : ''}`);
+  }
+}
+
+/**
+ * 处理远程节点删除
+ */
+function handleRemoteNodeDelete(operation: CollaborationOperation): void {
+  const data = operation.data as any;
+  
+  // 处理清空所有节点
+  if (data?.clearAll) {
+    nodes.value = [];
+    edges.value = [];
+    ensureRoot();
+    return;
+  }
+
+  if (!operation.nodeId) return;
+
+  // 删除节点
+  nodes.value = nodes.value.filter(n => n.id !== operation.nodeId);
+  
+  // 删除相关连接
+  edges.value = edges.value.filter(e => 
+    e.source !== operation.nodeId && e.target !== operation.nodeId
+  );
+}
+
+/**
+ * 处理远程边创建
+ */
+function handleRemoteEdgeCreate(operation: CollaborationOperation): void {
+  const data = operation.data as any;
+  if (!data || !data.source || !data.target) return;
+
+  // 检查边是否已存在
+  if (edges.value.find(e => e.source === data.source && e.target === data.target)) {
+    return;
+  }
+
+  edges.value.push({
+    id: operation.edgeId || generateUniqueId('edge'),
+    source: data.source,
+    target: data.target,
+  });
+}
+
+/**
+ * 处理远程边删除
+ */
+function handleRemoteEdgeDelete(operation: CollaborationOperation): void {
+  if (!operation.edgeId) return;
+
+  edges.value = edges.value.filter(e => e.id !== operation.edgeId);
+}
+
+/**
+ * 处理操作冲突
+ */
+function handleOperationConflict(conflict: OperationConflict): void {
+  console.warn('操作冲突:', conflict);
+  
+  // 这里可以显示冲突解决界面
+  // 目前简单地接受远程操作
+  if (collaborationManager.value) {
+    collaborationManager.value.resolveConflict(conflict, 'accept-remote');
+  }
+}
+
+/**
+ * 广播操作
+ */
+function broadcastOperation(operation: Omit<CollaborationOperation, 'userId' | 'timestamp'>): void {
+  if (collaborationManager.value && collaborationState.value.isConnected) {
+    collaborationManager.value.broadcastOperation(operation);
+  }
+}
+
+/**
+ * 处理用户配置保存
+ */
+function handleUserConfigSave(userConfig: UserConfig): void {
+  if (collaborationManager.value) {
+    collaborationManager.value.updateUserInfo(userConfig);
+  }
+  showUserConfig.value = false;
+}
+
+/**
+ * 聚焦到用户
+ */
+function focusOnUser(user: User): void {
+  // 这里可以实现聚焦到用户光标的逻辑
+  console.log('聚焦到用户:', user.displayName);
+}
+
+/**
+ * 切换用户光标显示
+ */
+function toggleUserCursor(user: User, visible: boolean): void {
+  if (cursorsRef.value) {
+    if (visible) {
+      cursorsRef.value.showCursor(user.userId);
+    } else {
+      cursorsRef.value.hideCursor(user.userId);
+    }
+  }
+}
+
+/**
+ * 切换所有光标显示
+ */
+function toggleAllCursors(visible: boolean): void {
+  showAllCursors.value = visible;
+  
+  if (cursorsRef.value) {
+    collaborationState.value.onlineUsers.forEach(user => {
+      if (visible) {
+        cursorsRef.value!.showCursor(user.userId);
+      } else {
+        cursorsRef.value!.hideCursor(user.userId);
+      }
+    });
+  }
+}
+
+/**
+ * 重新连接协同服务
+ */
+async function reconnectCollaboration(): Promise<void> {
+  if (collaborationManager.value) {
+    try {
+      await collaborationManager.value.reconnect();
+    } catch (error) {
+      console.error('重连失败:', error);
+    }
+  }
+}
+
+/**
+ * 刷新用户列表
+ */
+function refreshUsers(): void {
+  // 这里可以实现刷新用户列表的逻辑
+  console.log('刷新用户列表');
+}
+
+/**
+ * 处理光标点击
+ */
+function handleCursorClick(userId: string): void {
+  const user = collaborationState.value.onlineUsers.find(u => u.userId === userId);
+  if (user) {
+    console.log(`点击了 ${user.displayName} 的光标`);
+  }
+}
 </script>
 
 <style scoped>
@@ -783,6 +1379,50 @@ const clearGraph = () => {
   display: flex;
   flex-direction: column;
   background: #f5f5f5;
+  position: relative;
+}
+
+.online-users-panel {
+  position: absolute;
+  top: 80px;
+  right: 20px;
+  z-index: 1000;
+}
+
+.connection-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.connection-indicator.connected {
+  background: rgba(40, 167, 69, 0.1);
+  color: #28a745;
+}
+
+.connection-indicator.connecting {
+  background: rgba(255, 193, 7, 0.1);
+  color: #ffc107;
+}
+
+.connection-indicator.disconnected {
+  background: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
+}
+
+.connection-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.connection-indicator.connecting .connection-dot {
+  animation: pulse 1.5s infinite;
 }
 
 .toolbar {
@@ -909,6 +1549,37 @@ const clearGraph = () => {
 .node-overlay {
   position: absolute;
   pointer-events: auto;
+  transition: all 0.1s ease-out;
+}
+
+.node-overlay.remote-drag-start {
+  animation: dragStartPulse 0.3s ease-out;
+}
+
+.node-overlay.remote-dragging {
+  box-shadow: 0 0 20px rgba(102, 126, 234, 0.6);
+  transform: scale(1.02);
+  z-index: 999;
+}
+
+.node-overlay.remote-dragging .node-card {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.05);
+}
+
+@keyframes dragStartPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(102, 126, 234, 0.6);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 30px rgba(102, 126, 234, 0.8);
+  }
+  100% {
+    transform: scale(1.02);
+    box-shadow: 0 0 20px rgba(102, 126, 234, 0.6);
+  }
 }
 
 .node-overlay,

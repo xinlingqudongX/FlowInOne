@@ -369,6 +369,8 @@ onMounted(() => {
             <WorkflowEditor
               :workflow-data="selectedWorkflow"
               :project-name="selectedProject?.name"
+              :collaboration-enabled="true"
+              :project-id="selectedProject?.id"
               @save="saveWorkflow"
             />
           </div>

@@ -5,7 +5,7 @@
  */
 
 import { FileSystemService, PermissionManager } from './index';
-import type { WorkflowGraph } from '../types/workflow.types';
+import type { WorkflowGraph, TaskNode, Edge } from '../types/workflow.types';
 import { SCHEMA_VERSION } from '../constants/workflow.constants';
 
 /**
@@ -274,8 +274,8 @@ export class FileSystemDemo {
    */
   private createLargeWorkflowGraph(projectId: string, nodeCount: number): WorkflowGraph {
     const now = new Date().toISOString();
-    const nodes = [];
-    const edges = [];
+    const nodes: TaskNode[] = [];
+    const edges: Edge[] = [];
 
     // 创建起始节点
     nodes.push({
