@@ -166,12 +166,21 @@ export class CollaborationGateway implements OnGatewayConnection, OnGatewayDisco
     @ConnectedSocket() client: any,
     @MessageBody() data: { projectId: string; userInfo: { userId: string; displayName: string } }
   ) {
-    await this.messageHandler.handleUserJoin(
-      this.server,
-      client,
-      data.projectId,
-      data.userInfo
-    );
+    this.logger.log(`收到加入房间请求: ${JSON.stringify(data)}`);
+    try {
+      await this.messageHandler.handleUserJoin(
+        this.server,
+        client,
+        data.projectId,
+        data.userInfo
+      );
+    } catch (error) {
+      this.logger.error(`处理加入房间请求失败: ${error.message}`, error.stack);
+      this.sendErrorMessage(client, {
+        message: '加入房间失败',
+        code: 'JOIN_ROOM_ERROR'
+      });
+    }
   }
 
   /**
@@ -193,12 +202,17 @@ export class CollaborationGateway implements OnGatewayConnection, OnGatewayDisco
     @ConnectedSocket() client: any,
     @MessageBody() data: { projectId: string; position: CursorPosition }
   ) {
-    await this.messageHandler.handleCursorMove(
-      this.server,
-      client,
-      data.projectId,
-      data.position
-    );
+    this.logger.log(`收到光标移动消息: ${JSON.stringify(data)}`);
+    try {
+      await this.messageHandler.handleCursorMove(
+        this.server,
+        client,
+        data.projectId,
+        data.position
+      );
+    } catch (error) {
+      this.logger.error(`处理光标移动失败: ${error.message}`, error.stack);
+    }
   }
 
   /**
@@ -225,12 +239,21 @@ export class CollaborationGateway implements OnGatewayConnection, OnGatewayDisco
     @ConnectedSocket() client: any,
     @MessageBody() data: { projectId: string; userInfo: { displayName: string } }
   ) {
-    await this.messageHandler.handleUserInfoUpdate(
-      this.server,
-      client,
-      data.projectId,
-      data.userInfo
-    );
+    this.logger.log(`收到用户信息更新请求: ${JSON.stringify(data)}`);
+    try {
+      await this.messageHandler.handleUserInfoUpdate(
+        this.server,
+        client,
+        data.projectId,
+        data.userInfo
+      );
+    } catch (error) {
+      this.logger.error(`处理用户信息更新失败: ${error.message}`, error.stack);
+      this.sendErrorMessage(client, {
+        message: '用户信息更新失败',
+        code: 'UPDATE_USER_INFO_ERROR'
+      });
+    }
   }
 
   /**

@@ -112,7 +112,13 @@ export class WebSocketManager {
       return;
     }
 
-    this.socket.send(JSON.stringify(message));
+    // 转换为NestJS WebSocket期望的格式
+    const nestjsMessage = {
+      event: message.type,
+      data: message.data
+    };
+
+    this.socket.send(JSON.stringify(nestjsMessage));
   }
 
   /**
