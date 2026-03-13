@@ -1,0 +1,102 @@
+# Roadmap: FlowInOne — AI Execution Layer
+
+## Overview
+
+FlowInOne already has a working canvas editor and collaboration backend. This milestone adds the AI execution layer on top: nodes gain structured AI metadata fields (requirement, prompt, attributes), a backend persistence layer tracks status and execution history per node, and an export endpoint produces self-contained JSON that AI IDEs can consume to implement features in topological dependency order. The six phases follow strict data dependencies — schema before API, API before UI, UI before visualization, all of it before the review workflow that ties everything together.
+
+## Phases
+
+**Phase Numbering:**
+- Integer phases (1, 2, 3): Planned milestone work
+- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
+
+Decimal phases appear between their surrounding integers in numeric order.
+
+- [ ] **Phase 1: Data Model** - Establish the authoritative schema and resolve dual-write architectural conflicts before any code is written
+- [ ] **Phase 2: Node API** - Expose CRUD, status transitions, execution history, and canvas sync endpoints
+- [ ] **Phase 3: Workflow Export** - Deliver the AI IDE entry point with topological sort, can_execute flags, and cycle detection
+- [ ] **Phase 4: Node Edit Panel** - Build the frontend authoring UI where developers fill in requirements and prompts per node
+- [ ] **Phase 5: Status Visualization** - Color-code node borders by status on the canvas and keep them in sync via WebSocket
+- [ ] **Phase 6: Review Workflow** - Close the human-AI review loop with approve/reject controls and execution history display
+
+## Phase Details
+
+### Phase 1: Data Model
+**Goal**: The database schema and architectural contracts are locked so every subsequent phase builds on stable ground
+**Depends on**: Nothing (first phase)
+**Requirements**: DATA-01, DATA-02, DATA-03, DATA-04, DATA-05
+**Success Criteria** (what must be TRUE):
+  1. `node_metadata` and `node_execution_history` tables exist in SQLite and the migration runs cleanly from scratch
+  2. A round-trip test passes: a node converted to workflow JSON and back retains all AI fields (requirement, prompt, attributes) without corruption
+  3. The auto-save path in WorkflowManagerService provably cannot overwrite status, requirement, or prompt fields — verified by test or documented contract
+  4. NodeMetadataEntity schema document exists stating nodeId is PK, status is backend-only, and sync skips AI fields
+**Plans**: TBD
+
+### Phase 2: Node API
+**Goal**: Backend endpoints exist for all per-node operations so frontend and AI agents have a stable contract to build against
+**Depends on**: Phase 1
+**Requirements**: API-01, API-02, API-03, API-04, API-05
+**Success Criteria** (what must be TRUE):
+  1. `PATCH /api/v1/node/:id` accepts requirement, prompt, and attributes and persists them without touching status
+  2. `PATCH /api/v1/node/:id/status` transitions status and writes a prompt+requirement snapshot to history atomically
+  3. `POST /api/v1/node/:id/history` records an AI execution result; `GET /api/v1/node/:id/history` returns entries in reverse-chronological order
+  4. `POST /api/v1/workflow/:projectId/sync` upserts canvas node structure without overwriting status, requirement, prompt, or attributes
+**Plans**: TBD
+
+### Phase 3: Workflow Export
+**Goal**: AI IDEs can fetch a single endpoint and get a self-contained, topologically ordered workflow JSON they can execute without any graph traversal logic
+**Depends on**: Phase 2
+**Requirements**: EXPORT-01, EXPORT-02, EXPORT-03, EXPORT-04, EXPORT-05, EXPORT-06
+**Success Criteria** (what must be TRUE):
+  1. `GET /api/v1/workflow/:projectId/export` returns JSON where every node contains nodeId, type, requirement, prompt, attributes, status, and dependencies[]
+  2. Every node in the export has a `can_execute` boolean that is true only when all its dependency nodes are completed
+  3. The export includes a top-level `execution_order` array (topological sort) and `executable_now` array (currently executable node IDs)
+  4. Submitting a workflow with a cyclic dependency returns HTTP 422 with a description of the cycle path
+**Plans**: TBD
+
+### Phase 4: Node Edit Panel
+**Goal**: Developers can open any node on the canvas and fill in its requirement, prompt, and attributes through a purpose-built sidebar panel
+**Depends on**: Phase 2
+**Requirements**: EDITOR-01, EDITOR-02, EDITOR-03, EDITOR-04, EDITOR-05
+**Success Criteria** (what must be TRUE):
+  1. Clicking any node on the canvas opens a right-side panel without disrupting the canvas layout
+  2. The panel displays and allows editing of the requirement textarea, prompt textarea, and an attributes key-value table with add/remove row controls
+  3. Clicking Save in the panel calls `PATCH /api/v1/node/:id` and shows a visible success or error feedback to the user
+**Plans**: TBD
+
+### Phase 5: Status Visualization
+**Goal**: Node status is immediately visible on the canvas as color-coded borders and stays current without requiring a page refresh
+**Depends on**: Phase 4
+**Requirements**: VISUAL-01, VISUAL-02, VISUAL-03
+**Success Criteria** (what must be TRUE):
+  1. Node borders are gray (pending), green (completed), red (failed), and orange (review_needed) matching their current status
+  2. When a canvas loads, all nodes are immediately colored according to their stored status fetched from the export endpoint
+  3. When any collaborator or AI agent updates a node's status, the canvas border color updates in real time without a page refresh
+**Plans**: TBD
+
+### Phase 6: Review Workflow
+**Goal**: Developers can approve or reject AI-executed nodes from the edit panel, with rejection forcing prompt refinement before the node can be re-executed
+**Depends on**: Phase 5
+**Requirements**: REVIEW-01, REVIEW-02, REVIEW-03, REVIEW-04
+**Success Criteria** (what must be TRUE):
+  1. The edit panel shows "Approve" and "Reject" buttons for nodes in any reviewable state; Approve sets status to completed
+  2. Rejecting a node requires a non-empty rejection reason and sets status to review_needed
+  3. A node in review_needed state allows prompt editing; saving the updated prompt resets status to pending so it can be re-executed
+  4. The edit panel shows the last 5 execution history entries with timestamp, executor, and result summary for each
+**Plans**: TBD
+
+## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
+
+Note: Phase 3 and Phase 4 can run in parallel after Phase 2 completes — they have no cross-dependency.
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 1. Data Model | 0/TBD | Not started | - |
+| 2. Node API | 0/TBD | Not started | - |
+| 3. Workflow Export | 0/TBD | Not started | - |
+| 4. Node Edit Panel | 0/TBD | Not started | - |
+| 5. Status Visualization | 0/TBD | Not started | - |
+| 6. Review Workflow | 0/TBD | Not started | - |
