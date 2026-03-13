@@ -46,7 +46,12 @@ Plans:
   2. `PATCH /api/v1/node/:id/status` transitions status and writes a prompt+requirement snapshot to history atomically
   3. `POST /api/v1/node/:id/history` records an AI execution result; `GET /api/v1/node/:id/history` returns entries in reverse-chronological order
   4. `POST /api/v1/workflow/:projectId/sync` upserts canvas node structure without overwriting status, requirement, prompt, or attributes
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Test scaffold (test-setup.ts, spec stubs), 4 Zod DTOs, ProjectModule exports ProjectService (API-01, API-02, API-03, API-04, API-05)
+- [ ] 02-02-PLAN.md — NodeService implementation: all 5 methods with TDD RED→GREEN (API-01, API-02, API-03, API-04, API-05)
+- [ ] 02-03-PLAN.md — NodeController + WorkflowController wiring, human smoke test of all 5 routes (API-01, API-02, API-03, API-04, API-05)
 
 ### Phase 3: Workflow Export
 **Goal**: AI IDEs can fetch a single endpoint and get a self-contained, topologically ordered workflow JSON they can execute without any graph traversal logic
@@ -100,7 +105,7 @@ Note: Phase 3 and Phase 4 can run in parallel after Phase 2 completes — they h
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Data Model | 3/3 | Complete    | 2026-03-13 |
-| 2. Node API | 0/TBD | Not started | - |
+| 2. Node API | 0/3 | Not started | - |
 | 3. Workflow Export | 0/TBD | Not started | - |
 | 4. Node Edit Panel | 0/TBD | Not started | - |
 | 5. Status Visualization | 0/TBD | Not started | - |
