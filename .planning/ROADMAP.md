@@ -12,7 +12,7 @@ FlowInOne already has a working canvas editor and collaboration backend. This mi
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Data Model** - Establish the authoritative schema and resolve dual-write architectural conflicts before any code is written (gap closure in progress)
+- [x] **Phase 1: Data Model** - Establish the authoritative schema and resolve dual-write architectural conflicts before any code is written (4/4 success criteria met)
 - [ ] **Phase 2: Node API** - Expose CRUD, status transitions, execution history, and canvas sync endpoints
 - [ ] **Phase 3: Workflow Export** - Deliver the AI IDE entry point with topological sort, can_execute flags, and cycle detection
 - [ ] **Phase 4: Node Edit Panel** - Build the frontend authoring UI where developers fill in requirements and prompts per node
@@ -35,7 +35,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 - [x] 01-01-PLAN.md — Create NodeMetadataEntity, NodeExecutionHistoryEntity, NodeModule scaffold, register entities, generate and run migration (DATA-01, DATA-02, DATA-03)
 - [x] 01-02-PLAN.md — Update NodeStatus enum across all type files, update Instructions schema, fix logicflow-converter spread bug, add round-trip tests (DATA-04, DATA-05)
-- [ ] 01-03-PLAN.md — Gap closure: fix validation.service.ts stale schemas, create contract spec and schema document for DATA-04 (DATA-04)
+- [x] 01-03-PLAN.md — Gap closure: fix validation.service.ts stale schemas, create contract spec and schema document for DATA-04 (DATA-04)
 
 ### Phase 2: Node API
 **Goal**: Backend endpoints exist for all per-node operations so frontend and AI agents have a stable contract to build against
@@ -99,7 +99,7 @@ Note: Phase 3 and Phase 4 can run in parallel after Phase 2 completes — they h
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Data Model | 2/3 | Gap closure | - |
+| 1. Data Model | 3/3 | Complete | 2026-03-13 |
 | 2. Node API | 0/TBD | Not started | - |
 | 3. Workflow Export | 0/TBD | Not started | - |
 | 4. Node Edit Panel | 0/TBD | Not started | - |
