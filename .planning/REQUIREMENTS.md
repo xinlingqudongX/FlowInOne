@@ -15,11 +15,11 @@
 
 ### Node API
 
-- [ ] **API-01**: `PATCH /api/v1/node/:id` — 更新节点 AI 元数据（requirement、prompt、attributes），不影响 status
-- [ ] **API-02**: `PATCH /api/v1/node/:id/status` — 更新节点状态（pending/completed/failed/review_needed），写入时快照当前 prompt 和 requirement 到 history 记录
-- [ ] **API-03**: `POST /api/v1/node/:id/history` — AI 代理执行完成后记录执行结果（result、executedAt、createdBy）
-- [ ] **API-04**: `GET /api/v1/node/:id/history` — 获取节点历史执行记录列表（按时间倒序）
-- [ ] **API-05**: `POST /api/v1/workflow/:projectId/sync` — 将画布节点结构同步到 `NodeMetadataEntity`（upsert；跳过 status、requirement、prompt、attributes 字段）
+- [x] **API-01**: `PATCH /api/v1/node/:id` — 更新节点 AI 元数据（requirement、prompt、attributes），不影响 status
+- [x] **API-02**: `PATCH /api/v1/node/:id/status` — 更新节点状态（pending/completed/failed/review_needed），写入时快照当前 prompt 和 requirement 到 history 记录
+- [x] **API-03**: `POST /api/v1/node/:id/history` — AI 代理执行完成后记录执行结果（result、executedAt、createdBy）
+- [x] **API-04**: `GET /api/v1/node/:id/history` — 获取节点历史执行记录列表（按时间倒序）
+- [x] **API-05**: `POST /api/v1/workflow/:projectId/sync` — 将画布节点结构同步到 `NodeMetadataEntity`（upsert；跳过 status、requirement、prompt、attributes 字段）
 
 ### Workflow Export
 
@@ -81,11 +81,11 @@
 | DATA-03 | Phase 1 | Complete |
 | DATA-04 | Phase 1 | Complete |
 | DATA-05 | Phase 1 | Complete |
-| API-01 | Phase 2 | Pending |
-| API-02 | Phase 2 | Pending |
-| API-03 | Phase 2 | Pending |
-| API-04 | Phase 2 | Pending |
-| API-05 | Phase 2 | Pending |
+| API-01 | Phase 2 | Complete |
+| API-02 | Phase 2 | Complete |
+| API-03 | Phase 2 | Complete |
+| API-04 | Phase 2 | Complete |
+| API-05 | Phase 2 | Complete |
 | EXPORT-01 | Phase 3 | Pending |
 | EXPORT-02 | Phase 3 | Pending |
 | EXPORT-03 | Phase 3 | Pending |

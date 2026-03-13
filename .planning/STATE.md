@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-stopped_at: Completed 01-data-model/01-03-PLAN.md
-last_updated: "2026-03-13T06:26:41.160Z"
+stopped_at: Completed 02-node-api/02-01-PLAN.md
+last_updated: "2026-03-13T06:57:39.838Z"
 last_activity: 2026-03-13 — Plan 01-03 complete
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 6
+  completed_plans: 4
 ---
 
 ---
@@ -71,6 +71,7 @@ Progress: [█████████░] 17% (phase 1 of 6 done)
 | Phase 01-data-model P01 | 25 min | 2 tasks | 13 files |
 | Phase 01-data-model P02 | 7 min | 2 tasks | 11 files |
 | Phase 01-data-model P03 | 12 min | 2 tasks | 4 files |
+| Phase 02-node-api P01 | 6 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -91,6 +92,8 @@ Recent decisions affecting current work:
 - [Phase 01-data-model]: validation.service.ts aligned to locked schema — NodeStatus=pending|completed|failed|review_needed, InstructionsSchema=requirement+prompt
 - [Phase 01-data-model]: Contract test pattern established — TypeScript structural assertions (`'field' in obj`) prove field isolation between layers at compile time
 - [Phase 01-data-model]: NODE-METADATA-CONTRACT.md placed in src/node/ (not .planning/) as a codebase-browsable artifact for ROADMAP criterion 4
+- [Phase 02-node-api]: UpdateNodeDto omits status field — separate updateStatus endpoint prevents accidental status overwrite during content edits
+- [Phase 02-node-api]: sync.contract.spec.ts defines SYNC_UPSERT_OPTIONS inline — structural contract stays testable before NodeService implementation
 
 ### Pending Todos
 
@@ -103,6 +106,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T09:00:00.000Z
-Stopped at: Completed 01-data-model/01-03-PLAN.md
+Last session: 2026-03-13T06:57:39.835Z
+Stopped at: Completed 02-node-api/02-01-PLAN.md
 Resume file: None
