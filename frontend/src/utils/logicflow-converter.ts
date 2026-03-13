@@ -95,7 +95,10 @@ export class LogicFlowDataConverter implements DataConverter {
         nodeType: nodeData.type,
         width,
         height,
-        ...nodeData.config,
+        requirement: nodeData.config.requirement ?? '',
+        prompt: nodeData.config.prompt ?? null,
+        attributes: nodeData.config.attributes ?? [],
+        ...this.extractCustomProperties(nodeData.config),
       },
     };
   }
@@ -138,6 +141,9 @@ export class LogicFlowDataConverter implements DataConverter {
         resourceUrl: node.properties?.resourceUrl || '',
         resourceName: node.properties?.resourceName || '',
         properties: node.properties?.properties || [],
+        requirement: node.properties?.requirement ?? '',
+        prompt: node.properties?.prompt ?? null,
+        attributes: node.properties?.attributes ?? [],
         ...this.extractCustomProperties(node.properties || {}),
       },
     };
@@ -219,6 +225,10 @@ export class LogicFlowDataConverter implements DataConverter {
       'nodeType',
       'width',
       'height',
+      'typeKey',
+      'requirement',
+      'prompt',
+      'attributes',
     ]);
 
     const customProps: Record<string, any> = {};
