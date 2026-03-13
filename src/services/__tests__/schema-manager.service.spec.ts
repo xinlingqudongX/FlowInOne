@@ -1,6 +1,6 @@
 /**
  * SchemaManagerService 测试文件
- * 
+ *
  * 测试Schema版本管理服务的各种功能
  */
 
@@ -71,14 +71,14 @@ describe('SchemaManagerService', () => {
             nodeId: 'node-1',
             type: 'start',
             name: '开始',
-            instructions: { guide: 'g', logic: 'l', criteria: 'c' },
+            instructions: { requirement: '', prompt: undefined },
             dependencies: [],
             assets: [],
             outputs: [],
-            status: 'completed'
-          }
+            status: 'completed',
+          },
         ],
-        edges: []
+        edges: [],
       };
 
       expect(schemaManager.validateSchemaVersion(validGraph)).toBe(true);
@@ -96,14 +96,14 @@ describe('SchemaManagerService', () => {
             nodeId: 'node-1',
             type: 'start',
             name: '开始',
-            instructions: { guide: 'g', logic: 'l', criteria: 'c' },
+            instructions: { requirement: '', prompt: undefined },
             dependencies: [],
             assets: [],
             outputs: [],
-            status: 'completed'
-          }
+            status: 'completed',
+          },
         ],
-        edges: []
+        edges: [],
       };
 
       expect(schemaManager.validateSchemaVersion(invalidGraph)).toBe(false);
@@ -116,7 +116,7 @@ describe('SchemaManagerService', () => {
         createdAt: '2024-01-15T10:00:00.000Z',
         updatedAt: '2024-01-15T10:30:00.000Z',
         nodes: [],
-        edges: []
+        edges: [],
       } as unknown as WorkflowGraph;
 
       expect(schemaManager.validateSchemaVersion(noVersionGraph)).toBe(false);
@@ -136,14 +136,14 @@ describe('SchemaManagerService', () => {
             nodeId: 'node-1',
             type: 'start',
             name: '开始',
-            instructions: { guide: 'g', logic: 'l', criteria: 'c' },
+            instructions: { requirement: '', prompt: undefined },
             dependencies: [],
             assets: [],
             outputs: [],
-            status: 'completed'
-          }
+            status: 'completed',
+          },
         ],
-        edges: []
+        edges: [],
       };
 
       const result = schemaManager.migrateToLatest(oldGraph);
@@ -165,11 +165,11 @@ describe('SchemaManagerService', () => {
           {
             nodeId: 'node-1',
             type: 'start',
-            name: '开始'
+            name: '开始',
             // 缺少instructions, dependencies, assets, outputs, status
-          }
+          },
         ],
-        edges: []
+        edges: [],
       };
 
       const result = schemaManager.migrateToLatest(incompleteGraph);
@@ -177,7 +177,9 @@ describe('SchemaManagerService', () => {
       expect(result.success).toBe(true);
       expect(result.warnings).toBeDefined();
       expect(result.warnings!.length).toBeGreaterThan(0);
-      expect(result.changes.some(change => change.includes('添加默认指令字段'))).toBe(true);
+      expect(
+        result.changes.some((change) => change.includes('添加默认指令字段')),
+      ).toBe(true);
     });
 
     it('应该跳过已经是最新版本的迁移', () => {
@@ -192,14 +194,14 @@ describe('SchemaManagerService', () => {
             nodeId: 'node-1',
             type: 'start',
             name: '开始',
-            instructions: { guide: 'g', logic: 'l', criteria: 'c' },
+            instructions: { requirement: '', prompt: undefined },
             dependencies: [],
             assets: [],
             outputs: [],
-            status: 'completed'
-          }
+            status: 'completed',
+          },
         ],
-        edges: []
+        edges: [],
       };
 
       const result = schemaManager.migrateToLatest(currentGraph);
@@ -235,20 +237,20 @@ describe('SchemaManagerService', () => {
     it('应该缓存加载的Schema', async () => {
       // 第一次加载
       const schema1 = await schemaManager.loadSchemaByVersion('1.0.0');
-      
+
       // 第二次加载应该从缓存返回
       const schema2 = await schemaManager.loadSchemaByVersion('1.0.0');
-      
+
       expect(schema1).toBe(schema2);
     });
 
     it('应该清除Schema缓存', async () => {
       // 加载Schema到缓存
       await schemaManager.loadSchemaByVersion('1.0.0');
-      
+
       // 清除缓存
       schemaManager.clearSchemaCache();
-      
+
       // 再次加载应该重新读取文件
       const schema = await schemaManager.loadSchemaByVersion('1.0.0');
       expect(schema).toBeDefined();

@@ -1,6 +1,6 @@
 /**
  * Schema管理服务
- * 
+ *
  * 提供JSON Schema的版本管理功能，包括：
  * - Schema版本检查
  * - Schema升级迁移
@@ -49,8 +49,8 @@ export class SchemaManagerService {
       version: '1.0.0',
       description: '初始版本，包含基础工作流图结构',
       releaseDate: '2024-01-15',
-      breaking: false
-    }
+      breaking: false,
+    },
   ];
 
   /**
@@ -70,7 +70,7 @@ export class SchemaManagerService {
 
   /**
    * 获取当前Schema版本
-   * 
+   *
    * @returns string 当前版本号
    */
   public getCurrentVersion(): string {
@@ -79,7 +79,7 @@ export class SchemaManagerService {
 
   /**
    * 获取支持的所有版本
-   * 
+   *
    * @returns SchemaVersionInfo[] 版本信息列表
    */
   public getSupportedVersions(): SchemaVersionInfo[] {
@@ -88,17 +88,17 @@ export class SchemaManagerService {
 
   /**
    * 检查版本兼容性
-   * 
+   *
    * @param version 要检查的版本号
    * @returns boolean 是否兼容
    */
   public isVersionSupported(version: string): boolean {
-    return this.supportedVersions.some(v => v.version === version);
+    return this.supportedVersions.some((v) => v.version === version);
   }
 
   /**
    * 比较版本号
-   * 
+   *
    * @param version1 版本1
    * @param version2 版本2
    * @returns number -1: version1 < version2, 0: 相等, 1: version1 > version2
@@ -120,7 +120,7 @@ export class SchemaManagerService {
 
   /**
    * 检查是否需要升级
-   * 
+   *
    * @param currentVersion 当前版本
    * @returns boolean 是否需要升级
    */
@@ -130,7 +130,7 @@ export class SchemaManagerService {
 
   /**
    * 验证工作流图的Schema版本
-   * 
+   *
    * @param graph 工作流图数据
    * @returns boolean 版本是否有效
    */
@@ -144,7 +144,7 @@ export class SchemaManagerService {
 
   /**
    * 迁移工作流图到最新版本
-   * 
+   *
    * @param graph 工作流图数据
    * @returns SchemaMigrationResult 迁移结果
    */
@@ -158,7 +158,7 @@ export class SchemaManagerService {
         success: true,
         fromVersion,
         toVersion,
-        changes: []
+        changes: [],
       };
     }
 
@@ -167,30 +167,35 @@ export class SchemaManagerService {
 
     try {
       // 执行版本迁移逻辑
-      const migratedGraph = this.performMigration(graph, fromVersion, toVersion, changes, warnings);
+      const migratedGraph = this.performMigration(
+        graph,
+        fromVersion,
+        toVersion,
+        changes,
+        warnings,
+      );
 
       return {
         success: true,
         fromVersion,
         toVersion,
         changes,
-        warnings: warnings.length > 0 ? warnings : undefined
+        warnings: warnings.length > 0 ? warnings : undefined,
       };
-
     } catch (error: any) {
       return {
         success: false,
         fromVersion,
         toVersion,
         changes,
-        warnings: [`迁移失败: ${error.message}`]
+        warnings: [`迁移失败: ${error.message}`],
       };
     }
   }
 
   /**
    * 执行具体的迁移逻辑
-   * 
+   *
    * @param graph 原始工作流图
    * @param fromVersion 源版本
    * @param toVersion 目标版本
@@ -203,7 +208,7 @@ export class SchemaManagerService {
     fromVersion: string,
     toVersion: string,
     changes: string[],
-    warnings: string[]
+    warnings: string[],
   ): WorkflowGraph {
     let migratedGraph = { ...graph };
 
@@ -222,7 +227,7 @@ export class SchemaManagerService {
 
   /**
    * 迁移到版本1.0.0
-   * 
+   *
    * @param graph 工作流图
    * @param changes 变更记录
    * @param warnings 警告记录
@@ -231,36 +236,30 @@ export class SchemaManagerService {
   private migrateTo1_0_0(
     graph: WorkflowGraph,
     changes: string[],
-    warnings: string[]
+    warnings: string[],
   ): WorkflowGraph {
     const migratedGraph = { ...graph };
 
     // 确保所有节点都有必需的字段
-    migratedGraph.nodes = migratedGraph.nodes.map(node => {
+    migratedGraph.nodes = migratedGraph.nodes.map((node) => {
       const migratedNode = { ...node };
 
       // 确保instructions字段完整
       if (!migratedNode.instructions) {
         migratedNode.instructions = {
-          guide: '待补充指南',
-          logic: '待补充逻辑',
-          criteria: '待补充标准'
+          requirement: '',
+          prompt: undefined,
         };
         changes.push(`为节点 ${node.nodeId} 添加默认指令字段`);
         warnings.push(`节点 ${node.nodeId} 缺少指令信息，已添加默认值`);
       } else {
         // 检查指令子字段
-        if (!migratedNode.instructions.guide) {
-          migratedNode.instructions.guide = '待补充指南';
-          changes.push(`为节点 ${node.nodeId} 添加默认指南`);
-        }
-        if (!migratedNode.instructions.logic) {
-          migratedNode.instructions.logic = '待补充逻辑';
-          changes.push(`为节点 ${node.nodeId} 添加默认逻辑`);
-        }
-        if (!migratedNode.instructions.criteria) {
-          migratedNode.instructions.criteria = '待补充标准';
-          changes.push(`为节点 ${node.nodeId} 添加默认标准`);
+        if (
+          migratedNode.instructions.requirement === undefined ||
+          migratedNode.instructions.requirement === null
+        ) {
+          migratedNode.instructions.requirement = '';
+          changes.push(`为节点 ${node.nodeId} 添加默认requirement字段`);
         }
       }
 
@@ -303,7 +302,7 @@ export class SchemaManagerService {
         autoSave: true,
         autoSaveInterval: 500,
         enableBackup: true,
-        maxBackups: 5
+        maxBackups: 5,
       };
       changes.push('添加默认工作流设置');
     }
@@ -313,7 +312,7 @@ export class SchemaManagerService {
 
   /**
    * 加载指定版本的Schema
-   * 
+   *
    * @param version 版本号
    * @returns Promise<object> Schema对象
    */
@@ -337,7 +336,7 @@ export class SchemaManagerService {
       throw new ValidationError(
         `加载Schema版本 ${version} 失败: ${error.message}`,
         [],
-        { version, operation: 'load_schema', originalError: error.message }
+        { version, operation: 'load_schema', originalError: error.message },
       );
     }
   }
@@ -351,7 +350,7 @@ export class SchemaManagerService {
 
   /**
    * 获取版本变更日志
-   * 
+   *
    * @param fromVersion 起始版本
    * @param toVersion 目标版本
    * @returns string[] 变更日志
@@ -360,12 +359,14 @@ export class SchemaManagerService {
     const changes: string[] = [];
 
     // 获取版本范围内的所有变更
-    const relevantVersions = this.supportedVersions.filter(v => {
-      return this.compareVersions(v.version, fromVersion) > 0 &&
-             this.compareVersions(v.version, toVersion) <= 0;
+    const relevantVersions = this.supportedVersions.filter((v) => {
+      return (
+        this.compareVersions(v.version, fromVersion) > 0 &&
+        this.compareVersions(v.version, toVersion) <= 0
+      );
     });
 
-    relevantVersions.forEach(version => {
+    relevantVersions.forEach((version) => {
       changes.push(`${version.version}: ${version.description}`);
     });
 

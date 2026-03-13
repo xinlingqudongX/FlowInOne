@@ -1,12 +1,20 @@
 /**
  * 工作流图谱工具函数
- * 
+ *
  * 提供工作流图谱数据处理的通用工具函数，包括ID生成、时间戳处理、
  * 数据转换、验证辅助等功能。
  */
 
-import { WorkflowGraph, TaskNode, Edge, KiroConfig } from '../types/workflow.types';
-import { SCHEMA_VERSION, DEFAULT_WORKFLOW_SETTINGS } from '../constants/workflow.constants';
+import {
+  WorkflowGraph,
+  TaskNode,
+  Edge,
+  KiroConfig,
+} from '../types/workflow.types';
+import {
+  SCHEMA_VERSION,
+  DEFAULT_WORKFLOW_SETTINGS,
+} from '../constants/workflow.constants';
 
 /**
  * 生成唯一ID
@@ -68,10 +76,10 @@ export function getCurrentTimestamp(): string {
  */
 export function createEmptyWorkflowGraph(
   projectId: string,
-  projectName: string
+  projectName: string,
 ): WorkflowGraph {
   const now = getCurrentTimestamp();
-  
+
   return {
     projectId,
     projectName,
@@ -80,7 +88,7 @@ export function createEmptyWorkflowGraph(
     updatedAt: now,
     nodes: [],
     edges: [],
-    settings: { ...DEFAULT_WORKFLOW_SETTINGS }
+    settings: { ...DEFAULT_WORKFLOW_SETTINGS },
   };
 }
 
@@ -95,14 +103,12 @@ export function createStartNode(name: string = '开始'): TaskNode {
     type: 'start',
     name,
     instructions: {
-      guide: '工作流的起始点',
-      logic: '标记工作流开始执行',
-      criteria: '无需验收标准'
+      requirement: '工作流的起始点',
     },
     dependencies: [],
     assets: [],
     outputs: [],
-    status: 'pending'
+    status: 'pending',
   };
 }
 
@@ -117,14 +123,12 @@ export function createEndNode(name: string = '结束'): TaskNode {
     type: 'end',
     name,
     instructions: {
-      guide: '工作流的结束点',
-      logic: '标记工作流执行完成',
-      criteria: '所有前置任务已完成'
+      requirement: '工作流的结束点',
     },
     dependencies: [],
     assets: [],
     outputs: [],
-    status: 'pending'
+    status: 'pending',
   };
 }
 
@@ -136,7 +140,7 @@ export function createEndNode(name: string = '结束'): TaskNode {
 export function updateTimestamp(graph: WorkflowGraph): WorkflowGraph {
   return {
     ...graph,
-    updatedAt: getCurrentTimestamp()
+    updatedAt: getCurrentTimestamp(),
   };
 }
 
@@ -150,10 +154,10 @@ export function updateTimestamp(graph: WorkflowGraph): WorkflowGraph {
 export function isNodeIdUnique(
   nodes: TaskNode[],
   nodeId: string,
-  excludeIndex?: number
+  excludeIndex?: number,
 ): boolean {
-  return !nodes.some((node, index) => 
-    node.nodeId === nodeId && index !== excludeIndex
+  return !nodes.some(
+    (node, index) => node.nodeId === nodeId && index !== excludeIndex,
   );
 }
 
@@ -167,10 +171,10 @@ export function isNodeIdUnique(
 export function isEdgeIdUnique(
   edges: Edge[],
   edgeId: string,
-  excludeIndex?: number
+  excludeIndex?: number,
 ): boolean {
-  return !edges.some((edge, index) => 
-    edge.edgeId === edgeId && index !== excludeIndex
+  return !edges.some(
+    (edge, index) => edge.edgeId === edgeId && index !== excludeIndex,
   );
 }
 
@@ -182,13 +186,13 @@ export function isEdgeIdUnique(
  */
 export function findNodeDependencies(
   graph: WorkflowGraph,
-  nodeId: string
+  nodeId: string,
 ): TaskNode[] {
-  const node = graph.nodes.find(n => n.nodeId === nodeId);
+  const node = graph.nodes.find((n) => n.nodeId === nodeId);
   if (!node) return [];
-  
+
   return node.dependencies
-    .map(depId => graph.nodes.find(n => n.nodeId === depId))
+    .map((depId) => graph.nodes.find((n) => n.nodeId === depId))
     .filter((n): n is TaskNode => n !== undefined);
 }
 
@@ -200,14 +204,14 @@ export function findNodeDependencies(
  */
 export function findNodeSuccessors(
   graph: WorkflowGraph,
-  nodeId: string
+  nodeId: string,
 ): TaskNode[] {
   const successorIds = graph.nodes
-    .filter(node => node.dependencies.includes(nodeId))
-    .map(node => node.nodeId);
-    
+    .filter((node) => node.dependencies.includes(nodeId))
+    .map((node) => node.nodeId);
+
   return successorIds
-    .map(id => graph.nodes.find(n => n.nodeId === id))
+    .map((id) => graph.nodes.find((n) => n.nodeId === id))
     .filter((n): n is TaskNode => n !== undefined);
 }
 
@@ -219,31 +223,31 @@ export function findNodeSuccessors(
 export function hasCircularDependency(graph: WorkflowGraph): boolean {
   const visited = new Set<string>();
   const recursionStack = new Set<string>();
-  
+
   function dfs(nodeId: string): boolean {
     if (recursionStack.has(nodeId)) return true;
     if (visited.has(nodeId)) return false;
-    
+
     visited.add(nodeId);
     recursionStack.add(nodeId);
-    
-    const node = graph.nodes.find(n => n.nodeId === nodeId);
+
+    const node = graph.nodes.find((n) => n.nodeId === nodeId);
     if (node) {
       for (const depId of node.dependencies) {
         if (dfs(depId)) return true;
       }
     }
-    
+
     recursionStack.delete(nodeId);
     return false;
   }
-  
+
   for (const node of graph.nodes) {
     if (!visited.has(node.nodeId)) {
       if (dfs(node.nodeId)) return true;
     }
   }
-  
+
   return false;
 }
 
@@ -254,23 +258,23 @@ export function hasCircularDependency(graph: WorkflowGraph): boolean {
  */
 export function findOrphanedNodes(graph: WorkflowGraph): TaskNode[] {
   const connectedNodes = new Set<string>();
-  
+
   // 从边中收集连接的节点
-  graph.edges.forEach(edge => {
+  graph.edges.forEach((edge) => {
     connectedNodes.add(edge.source);
     connectedNodes.add(edge.target);
   });
-  
+
   // 从依赖关系中收集连接的节点
-  graph.nodes.forEach(node => {
+  graph.nodes.forEach((node) => {
     if (node.dependencies.length > 0) {
       connectedNodes.add(node.nodeId);
-      node.dependencies.forEach(depId => connectedNodes.add(depId));
+      node.dependencies.forEach((depId) => connectedNodes.add(depId));
     }
   });
-  
+
   // 查找未连接的节点
-  return graph.nodes.filter(node => !connectedNodes.has(node.nodeId));
+  return graph.nodes.filter((node) => !connectedNodes.has(node.nodeId));
 }
 
 /**
@@ -279,20 +283,20 @@ export function findOrphanedNodes(graph: WorkflowGraph): TaskNode[] {
  * @returns 缺失的引用列表
  */
 export function findMissingReferences(graph: WorkflowGraph): string[] {
-  const nodeIds = new Set(graph.nodes.map(node => node.nodeId));
+  const nodeIds = new Set(graph.nodes.map((node) => node.nodeId));
   const missingRefs: string[] = [];
-  
+
   // 检查节点依赖引用
-  graph.nodes.forEach(node => {
-    node.dependencies.forEach(depId => {
+  graph.nodes.forEach((node) => {
+    node.dependencies.forEach((depId) => {
       if (!nodeIds.has(depId)) {
         missingRefs.push(`节点 ${node.nodeId} 依赖不存在的节点 ${depId}`);
       }
     });
   });
-  
+
   // 检查边引用
-  graph.edges.forEach(edge => {
+  graph.edges.forEach((edge) => {
     if (!nodeIds.has(edge.source)) {
       missingRefs.push(`边 ${edge.edgeId} 的源节点 ${edge.source} 不存在`);
     }
@@ -300,7 +304,7 @@ export function findMissingReferences(graph: WorkflowGraph): string[] {
       missingRefs.push(`边 ${edge.edgeId} 的目标节点 ${edge.target} 不存在`);
     }
   });
-  
+
   return missingRefs;
 }
 
@@ -321,12 +325,12 @@ export function cloneWorkflowGraph(graph: WorkflowGraph): WorkflowGraph {
  */
 export function isWorkflowGraphEqual(
   graph1: WorkflowGraph,
-  graph2: WorkflowGraph
+  graph2: WorkflowGraph,
 ): boolean {
   // 忽略updatedAt字段的比较
   const { updatedAt: _, ...g1 } = graph1;
   const { updatedAt: __, ...g2 } = graph2;
-  
+
   return JSON.stringify(g1) === JSON.stringify(g2);
 }
 
@@ -338,13 +342,13 @@ export function isWorkflowGraphEqual(
  */
 export function createKiroConfig(
   projectId: string,
-  workflowPath: string
+  workflowPath: string,
 ): KiroConfig {
   return {
     currentProject: projectId,
     workflowPath,
     schemaVersion: SCHEMA_VERSION,
-    lastModified: getCurrentTimestamp()
+    lastModified: getCurrentTimestamp(),
   };
 }
 
@@ -357,12 +361,12 @@ export function formatFileSize(bytes: number): string {
   const units = ['B', 'KB', 'MB', 'GB'];
   let size = bytes;
   let unitIndex = 0;
-  
+
   while (size >= 1024 && unitIndex < units.length - 1) {
     size /= 1024;
     unitIndex++;
   }
-  
+
   return `${size.toFixed(1)} ${units[unitIndex]}`;
 }
 
@@ -374,10 +378,10 @@ export function formatFileSize(bytes: number): string {
  */
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
-  delay: number
+  delay: number,
 ): (...args: Parameters<T>) => void {
   let timeoutId: NodeJS.Timeout;
-  
+
   return (...args: Parameters<T>) => {
     clearTimeout(timeoutId);
     timeoutId = setTimeout(() => func(...args), delay);

@@ -7,7 +7,7 @@
 export type NodeType = 'root' | 'text' | 'image' | 'video' | 'audio' | 'file' | 'property';
 
 // 节点状态枚举
-export type NodeStatus = 'pending' | 'running' | 'completed' | 'failed';
+export type NodeStatus = 'pending' | 'completed' | 'failed' | 'review_needed';
 
 // 基础节点配置接口
 export interface BaseNodeConfig {
@@ -37,6 +37,9 @@ export interface ExtendedNodeConfig extends BaseNodeConfig {
     nodeType?: NodeType;
     width?: number;
     height?: number;
+    requirement?: string;
+    prompt?: string | null;
+    attributes?: Array<{ key: string; value: string }>;
     [key: string]: any;
   };
 }
@@ -95,6 +98,9 @@ export interface NodeData {
     resourceName?: string;
     resourceUrl?: string;
     properties?: Array<{ key: string; value: string }>;
+    requirement?: string;
+    prompt?: string | null;
+    attributes?: Array<{ key: string; value: string }>;
     [key: string]: any;
   };
 }

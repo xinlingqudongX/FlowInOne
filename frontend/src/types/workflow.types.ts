@@ -15,7 +15,7 @@ export type NodeType = 'start' | 'task' | 'decision' | 'parallel' | 'end';
 /**
  * 节点状态
  */
-export type NodeStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+export type NodeStatus = 'pending' | 'completed' | 'failed' | 'review_needed';
 
 /**
  * 边类型
@@ -44,9 +44,8 @@ export interface Position {
  * 指令信息
  */
 export interface Instructions {
-  guide: string;
-  logic: string;
-  criteria: string;
+  requirement: string;
+  prompt?: string;
 }
 
 /**

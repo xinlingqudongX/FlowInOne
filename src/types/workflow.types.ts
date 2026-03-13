@@ -1,6 +1,6 @@
 /**
  * 工作流图谱数据类型定义
- * 
+ *
  * 本文件定义了工作流图谱系统的核心数据类型，包括：
  * - WorkflowGraph: 完整的工作流图数据结构
  * - TaskNode: 任务节点定义
@@ -11,59 +11,56 @@
 /**
  * 节点类型枚举
  */
-export type NodeType = 
-  | 'start'          // 起始节点
-  | 'task'           // 普通任务节点
-  | 'decision'       // 决策节点
-  | 'parallel'       // 并行节点
-  | 'end';           // 结束节点
+export type NodeType =
+  | 'start' // 起始节点
+  | 'task' // 普通任务节点
+  | 'decision' // 决策节点
+  | 'parallel' // 并行节点
+  | 'end'; // 结束节点
 
 /**
  * 节点执行状态枚举
  */
-export type NodeStatus = 
-  | 'pending'        // 待执行
-  | 'running'        // 执行中
-  | 'completed'      // 已完成
-  | 'failed'         // 失败
-  | 'skipped';       // 跳过
+export type NodeStatus =
+  | 'pending' // 待执行
+  | 'completed' // 已完成
+  | 'failed' // 失败
+  | 'review_needed'; // 需要审核
 
 /**
  * 资产角色枚举
  */
-export type AssetRole = 
-  | 'input'          // 输入文件
-  | 'output'         // 输出文件
-  | 'reference'      // 参考文件
-  | 'template';      // 模板文件
+export type AssetRole =
+  | 'input' // 输入文件
+  | 'output' // 输出文件
+  | 'reference' // 参考文件
+  | 'template'; // 模板文件
 
 /**
  * 输出类型枚举
  */
-export type OutputType = 
-  | 'file'           // 文件输出
-  | 'data'           // 数据输出
-  | 'artifact';      // 构建产物
+export type OutputType =
+  | 'file' // 文件输出
+  | 'data' // 数据输出
+  | 'artifact'; // 构建产物
 
 /**
  * 边类型枚举
  */
-export type EdgeType = 
-  | 'sequence'       // 顺序执行
-  | 'conditional'    // 条件执行
-  | 'parallel';      // 并行执行
+export type EdgeType =
+  | 'sequence' // 顺序执行
+  | 'conditional' // 条件执行
+  | 'parallel'; // 并行执行
 
 /**
  * 任务指令接口
  * 包含任务执行的详细指导信息
  */
 export interface Instructions {
-  /** 任务指南：任务的总体说明 */
-  guide: string;
-  /** 执行逻辑：任务的具体执行步骤 */
-  logic: string;
-  /** 验收标准：任务完成的判断标准 */
-  criteria: string;
+  /** 需求描述：任务的需求说明 */
+  requirement: string;
+  /** AI提示词（可选） */
+  prompt?: string;
 }
 
 /**
@@ -247,7 +244,11 @@ export interface IntegrityResult {
  */
 export interface IntegrityIssue {
   /** 问题类型 */
-  type: 'missing_reference' | 'circular_dependency' | 'orphaned_node' | 'invalid_edge';
+  type:
+    | 'missing_reference'
+    | 'circular_dependency'
+    | 'orphaned_node'
+    | 'invalid_edge';
   /** 问题描述 */
   message: string;
   /** 相关节点ID */

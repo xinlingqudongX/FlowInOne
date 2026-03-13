@@ -1,6 +1,6 @@
 /**
  * 工作流图谱数据验证Schema
- * 
+ *
  * 使用Zod库定义工作流图谱数据的验证规则，确保数据结构的正确性和完整性。
  * 这些Schema用于运行时数据验证，防止无效数据的存储和处理。
  */
@@ -12,10 +12,10 @@ import { z } from 'zod';
  */
 export const NodeTypeSchema = z.enum([
   'start',
-  'task', 
+  'task',
   'decision',
   'parallel',
-  'end'
+  'end',
 ]);
 
 /**
@@ -23,10 +23,9 @@ export const NodeTypeSchema = z.enum([
  */
 export const NodeStatusSchema = z.enum([
   'pending',
-  'running',
   'completed',
   'failed',
-  'skipped'
+  'review_needed',
 ]);
 
 /**
@@ -36,34 +35,25 @@ export const AssetRoleSchema = z.enum([
   'input',
   'output',
   'reference',
-  'template'
+  'template',
 ]);
 
 /**
  * 输出类型Schema
  */
-export const OutputTypeSchema = z.enum([
-  'file',
-  'data',
-  'artifact'
-]);
+export const OutputTypeSchema = z.enum(['file', 'data', 'artifact']);
 
 /**
  * 边类型Schema
  */
-export const EdgeTypeSchema = z.enum([
-  'sequence',
-  'conditional',
-  'parallel'
-]);
+export const EdgeTypeSchema = z.enum(['sequence', 'conditional', 'parallel']);
 
 /**
  * 任务指令Schema
  */
 export const InstructionsSchema = z.object({
-  guide: z.string().min(1, '指南不能为空'),
-  logic: z.string().min(1, '执行逻辑不能为空'),
-  criteria: z.string().min(1, '验收标准不能为空')
+  requirement: z.string().default(''),
+  prompt: z.string().nullable().optional(),
 });
 
 /**
@@ -73,7 +63,7 @@ export const AssetSchema = z.object({
   assetId: z.string().min(1, '资产ID不能为空'),
   path: z.string().min(1, '文件路径不能为空'),
   role: AssetRoleSchema,
-  description: z.string().optional()
+  description: z.string().optional(),
 });
 
 /**
@@ -84,7 +74,7 @@ export const OutputSchema = z.object({
   name: z.string().min(1, '输出名称不能为空'),
   type: OutputTypeSchema,
   path: z.string().optional(),
-  description: z.string().optional()
+  description: z.string().optional(),
 });
 
 /**
@@ -92,18 +82,20 @@ export const OutputSchema = z.object({
  */
 export const PositionSchema = z.object({
   x: z.number(),
-  y: z.number()
+  y: z.number(),
 });
 
 /**
  * 任务节点Schema
  */
 export const TaskNodeSchema = z.object({
-  nodeId: z.string()
+  nodeId: z
+    .string()
     .min(1, '节点ID不能为空')
     .regex(/^[a-zA-Z0-9-_]+$/, '节点ID只能包含字母、数字、连字符和下划线'),
   type: NodeTypeSchema,
-  name: z.string()
+  name: z
+    .string()
     .min(1, '节点名称不能为空')
     .max(100, '节点名称不能超过100个字符'),
   description: z.string().optional(),
@@ -113,7 +105,7 @@ export const TaskNodeSchema = z.object({
   outputs: z.array(OutputSchema).default([]),
   status: NodeStatusSchema.default('pending'),
   position: PositionSchema.optional(),
-  metadata: z.record(z.unknown()).optional()
+  metadata: z.record(z.unknown()).optional(),
 });
 
 /**
@@ -125,7 +117,7 @@ export const EdgeSchema = z.object({
   target: z.string().min(1, '目标节点ID不能为空'),
   type: EdgeTypeSchema,
   condition: z.string().optional(),
-  label: z.string().optional()
+  label: z.string().optional(),
 });
 
 /**
@@ -133,65 +125,88 @@ export const EdgeSchema = z.object({
  */
 export const WorkflowSettingsSchema = z.object({
   autoSave: z.boolean().default(true),
-  autoSaveInterval: z.number().min(100, '自动保存间隔不能少于100毫秒').default(500),
+  autoSaveInterval: z
+    .number()
+    .min(100, '自动保存间隔不能少于100毫秒')
+    .default(500),
   enableBackup: z.boolean().default(true),
-  maxBackups: z.number().min(1, '最大备份数量不能少于1').default(5)
+  maxBackups: z.number().min(1, '最大备份数量不能少于1').default(5),
 });
 
 /**
  * 工作流图Schema
  */
-export const WorkflowGraphSchema = z.object({
-  projectId: z.string()
-    .min(1, '项目ID不能为空')
-    .regex(/^[a-zA-Z0-9-_]+$/, '项目ID只能包含字母、数字、连字符和下划线'),
-  projectName: z.string()
-    .min(1, '项目名称不能为空')
-    .max(100, '项目名称不能超过100个字符'),
-  version: z.string()
-    .regex(/^\d+\.\d+\.\d+$/, '版本号必须符合语义化版本格式（如1.0.0）'),
-  createdAt: z.string().datetime('创建时间必须是有效的ISO 8601格式'),
-  updatedAt: z.string().datetime('更新时间必须是有效的ISO 8601格式'),
-  nodes: z.array(TaskNodeSchema).min(1, '工作流图至少需要包含一个节点'),
-  edges: z.array(EdgeSchema).default([]),
-  settings: WorkflowSettingsSchema.optional()
-}).refine((data) => {
-  // 验证引用完整性：所有边的source和target必须指向存在的节点
-  const nodeIds = new Set(data.nodes.map(node => node.nodeId));
-  const invalidEdges = data.edges.filter(edge => 
-    !nodeIds.has(edge.source) || !nodeIds.has(edge.target)
+export const WorkflowGraphSchema = z
+  .object({
+    projectId: z
+      .string()
+      .min(1, '项目ID不能为空')
+      .regex(/^[a-zA-Z0-9-_]+$/, '项目ID只能包含字母、数字、连字符和下划线'),
+    projectName: z
+      .string()
+      .min(1, '项目名称不能为空')
+      .max(100, '项目名称不能超过100个字符'),
+    version: z
+      .string()
+      .regex(/^\d+\.\d+\.\d+$/, '版本号必须符合语义化版本格式（如1.0.0）'),
+    createdAt: z.string().datetime('创建时间必须是有效的ISO 8601格式'),
+    updatedAt: z.string().datetime('更新时间必须是有效的ISO 8601格式'),
+    nodes: z.array(TaskNodeSchema).min(1, '工作流图至少需要包含一个节点'),
+    edges: z.array(EdgeSchema).default([]),
+    settings: WorkflowSettingsSchema.optional(),
+  })
+  .refine(
+    (data) => {
+      // 验证引用完整性：所有边的source和target必须指向存在的节点
+      const nodeIds = new Set(data.nodes.map((node) => node.nodeId));
+      const invalidEdges = data.edges.filter(
+        (edge) => !nodeIds.has(edge.source) || !nodeIds.has(edge.target),
+      );
+      return invalidEdges.length === 0;
+    },
+    {
+      message: '边的源节点或目标节点不存在',
+      path: ['edges'],
+    },
+  )
+  .refine(
+    (data) => {
+      // 验证依赖关系：所有dependencies必须指向存在的节点
+      const nodeIds = new Set(data.nodes.map((node) => node.nodeId));
+      const invalidDependencies = data.nodes.some((node) =>
+        node.dependencies.some((depId) => !nodeIds.has(depId)),
+      );
+      return !invalidDependencies;
+    },
+    {
+      message: '节点依赖引用了不存在的节点',
+      path: ['nodes'],
+    },
+  )
+  .refine(
+    (data) => {
+      // 验证节点ID唯一性
+      const nodeIds = data.nodes.map((node) => node.nodeId);
+      const uniqueNodeIds = new Set(nodeIds);
+      return nodeIds.length === uniqueNodeIds.size;
+    },
+    {
+      message: '节点ID必须唯一',
+      path: ['nodes'],
+    },
+  )
+  .refine(
+    (data) => {
+      // 验证边ID唯一性
+      const edgeIds = data.edges.map((edge) => edge.edgeId);
+      const uniqueEdgeIds = new Set(edgeIds);
+      return edgeIds.length === uniqueEdgeIds.size;
+    },
+    {
+      message: '边ID必须唯一',
+      path: ['edges'],
+    },
   );
-  return invalidEdges.length === 0;
-}, {
-  message: '边的源节点或目标节点不存在',
-  path: ['edges']
-}).refine((data) => {
-  // 验证依赖关系：所有dependencies必须指向存在的节点
-  const nodeIds = new Set(data.nodes.map(node => node.nodeId));
-  const invalidDependencies = data.nodes.some(node =>
-    node.dependencies.some(depId => !nodeIds.has(depId))
-  );
-  return !invalidDependencies;
-}, {
-  message: '节点依赖引用了不存在的节点',
-  path: ['nodes']
-}).refine((data) => {
-  // 验证节点ID唯一性
-  const nodeIds = data.nodes.map(node => node.nodeId);
-  const uniqueNodeIds = new Set(nodeIds);
-  return nodeIds.length === uniqueNodeIds.size;
-}, {
-  message: '节点ID必须唯一',
-  path: ['nodes']
-}).refine((data) => {
-  // 验证边ID唯一性
-  const edgeIds = data.edges.map(edge => edge.edgeId);
-  const uniqueEdgeIds = new Set(edgeIds);
-  return edgeIds.length === uniqueEdgeIds.size;
-}, {
-  message: '边ID必须唯一',
-  path: ['edges']
-});
 
 /**
  * Kiro配置Schema
@@ -199,9 +214,10 @@ export const WorkflowGraphSchema = z.object({
 export const KiroConfigSchema = z.object({
   currentProject: z.string().min(1, '当前项目ID不能为空'),
   workflowPath: z.string().min(1, '工作流文件路径不能为空'),
-  schemaVersion: z.string()
+  schemaVersion: z
+    .string()
     .regex(/^\d+\.\d+\.\d+$/, 'Schema版本号必须符合语义化版本格式'),
-  lastModified: z.string().datetime('最后修改时间必须是有效的ISO 8601格式')
+  lastModified: z.string().datetime('最后修改时间必须是有效的ISO 8601格式'),
 });
 
 /**
@@ -210,7 +226,7 @@ export const KiroConfigSchema = z.object({
 export const ValidationErrorSchema = z.object({
   path: z.string(),
   message: z.string(),
-  code: z.string().optional()
+  code: z.string().optional(),
 });
 
 /**
@@ -218,17 +234,22 @@ export const ValidationErrorSchema = z.object({
  */
 export const ValidationResultSchema = z.object({
   valid: z.boolean(),
-  errors: z.array(ValidationErrorSchema).optional()
+  errors: z.array(ValidationErrorSchema).optional(),
 });
 
 /**
  * 完整性问题Schema
  */
 export const IntegrityIssueSchema = z.object({
-  type: z.enum(['missing_reference', 'circular_dependency', 'orphaned_node', 'invalid_edge']),
+  type: z.enum([
+    'missing_reference',
+    'circular_dependency',
+    'orphaned_node',
+    'invalid_edge',
+  ]),
   message: z.string(),
   nodeId: z.string().optional(),
-  edgeId: z.string().optional()
+  edgeId: z.string().optional(),
 });
 
 /**
@@ -236,7 +257,7 @@ export const IntegrityIssueSchema = z.object({
  */
 export const IntegrityResultSchema = z.object({
   valid: z.boolean(),
-  issues: z.array(IntegrityIssueSchema)
+  issues: z.array(IntegrityIssueSchema),
 });
 
 /**
@@ -245,7 +266,7 @@ export const IntegrityResultSchema = z.object({
 export const ReferenceResultSchema = z.object({
   valid: z.boolean(),
   missingReferences: z.array(z.string()),
-  orphanedNodes: z.array(z.string())
+  orphanedNodes: z.array(z.string()),
 });
 
 // 导出类型推断
