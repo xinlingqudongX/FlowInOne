@@ -1,6 +1,6 @@
 /**
  * ValidationService 测试文件
- * 
+ *
  * 测试数据验证服务的各种功能，包括：
  * - Schema验证
  * - 引用完整性检查
@@ -39,9 +39,8 @@ describe('ValidationService', () => {
           type: 'start',
           name: '开始节点',
           instructions: {
-            guide: '项目开始',
-            logic: '初始化项目',
-            criteria: '环境准备完成'
+            requirement: '项目开始',
+            prompt: '初始化项目并确认环境准备完成'
           },
           dependencies: [],
           assets: [],
@@ -53,9 +52,8 @@ describe('ValidationService', () => {
           type: 'task',
           name: '任务节点',
           instructions: {
-            guide: '执行任务',
-            logic: '按步骤执行',
-            criteria: '任务完成'
+            requirement: '执行任务',
+            prompt: '按步骤执行直到任务完成'
           },
           dependencies: ['start-001'],
           assets: [],
@@ -144,9 +142,8 @@ describe('ValidationService', () => {
       type: 'task',
       name: '测试任务',
       instructions: {
-        guide: '任务指南',
-        logic: '执行逻辑',
-        criteria: '验收标准'
+        requirement: '任务需求描述',
+        prompt: 'AI提示词'
       },
       dependencies: [],
       assets: [],
@@ -170,20 +167,66 @@ describe('ValidationService', () => {
       expect(result.errors!.some(err => err.path === 'instructions')).toBe(true);
     });
 
-    it('应该拒绝指令字段不完整的节点', () => {
-      const invalidNode = {
+    it('应该拒绝使用旧字段格式的指令（验证新格式有效）', () => {
+      // Zod strips unknown keys by default, so guide/logic/criteria are ignored
+      // This test verifies the new requirement/prompt format is accepted
+      const validNode = { ...validTaskNode, instructions: { requirement: '需求描述' } };
+      const validResult = validationService.validateTaskNode(validNode);
+      expect(validResult.valid).toBe(true);
+    });
+
+    it('应该接受包含requirement和prompt的指令', () => {
+      const nodeWithInstructions = {
         ...validTaskNode,
         instructions: {
-          guide: '指南',
-          logic: '逻辑'
-          // 缺少criteria字段
+          requirement: '任务需求',
+          prompt: 'AI提示词'
         }
       };
+      const result = validationService.validateTaskNode(nodeWithInstructions);
+      expect(result.valid).toBe(true);
+    });
 
+    it('应该接受只含requirement的指令（prompt是可选的）', () => {
+      const nodeWithMinimalInstructions = {
+        ...validTaskNode,
+        instructions: {
+          requirement: '任务需求'
+        }
+      };
+      const result = validationService.validateTaskNode(nodeWithMinimalInstructions);
+      expect(result.valid).toBe(true);
+    });
+
+    it('应该拒绝状态为running的节点', () => {
+      const invalidNode = {
+        ...validTaskNode,
+        status: 'running' as any
+      };
       const result = validationService.validateTaskNode(invalidNode);
       expect(result.valid).toBe(false);
       expect(result.errors).toBeDefined();
-      expect(result.errors!.some(err => err.path.includes('criteria'))).toBe(true);
+      expect(result.errors!.some(err => err.path === 'status')).toBe(true);
+    });
+
+    it('应该拒绝状态为skipped的节点', () => {
+      const invalidNode = {
+        ...validTaskNode,
+        status: 'skipped' as any
+      };
+      const result = validationService.validateTaskNode(invalidNode);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toBeDefined();
+      expect(result.errors!.some(err => err.path === 'status')).toBe(true);
+    });
+
+    it('应该接受状态为review_needed的节点', () => {
+      const nodeWithReviewStatus: TaskNode = {
+        ...validTaskNode,
+        status: 'review_needed'
+      };
+      const result = validationService.validateTaskNode(nodeWithReviewStatus);
+      expect(result.valid).toBe(true);
     });
 
     it('应该拒绝无效的节点类型', () => {
@@ -224,7 +267,7 @@ describe('ValidationService', () => {
             nodeId: 'node-1',
             type: 'start',
             name: '节点1',
-            instructions: { guide: 'g', logic: 'l', criteria: 'c' },
+            instructions: { requirement: '起始节点需求' },
             dependencies: [],
             assets: [],
             outputs: [],
@@ -234,7 +277,7 @@ describe('ValidationService', () => {
             nodeId: 'node-2',
             type: 'task',
             name: '节点2',
-            instructions: { guide: 'g', logic: 'l', criteria: 'c' },
+            instructions: { requirement: '任务节点需求' },
             dependencies: ['node-1'],
             assets: [],
             outputs: [],
@@ -269,7 +312,7 @@ describe('ValidationService', () => {
             nodeId: 'node-1',
             type: 'task',
             name: '节点1',
-            instructions: { guide: 'g', logic: 'l', criteria: 'c' },
+            instructions: { requirement: '任务需求' },
             dependencies: ['missing-node'], // 引用不存在的节点
             assets: [],
             outputs: [],
@@ -296,7 +339,7 @@ describe('ValidationService', () => {
             nodeId: 'node-1',
             type: 'start',
             name: '节点1',
-            instructions: { guide: 'g', logic: 'l', criteria: 'c' },
+            instructions: { requirement: '起始节点' },
             dependencies: [],
             assets: [],
             outputs: [],
@@ -330,7 +373,7 @@ describe('ValidationService', () => {
             nodeId: 'start-node',
             type: 'start',
             name: '开始节点',
-            instructions: { guide: 'g', logic: 'l', criteria: 'c' },
+            instructions: { requirement: '开始节点需求' },
             dependencies: [],
             assets: [],
             outputs: [],
@@ -340,7 +383,7 @@ describe('ValidationService', () => {
             nodeId: 'orphan-node',
             type: 'task',
             name: '孤立节点',
-            instructions: { guide: 'g', logic: 'l', criteria: 'c' },
+            instructions: { requirement: '孤立节点需求' },
             dependencies: [],
             assets: [],
             outputs: [],
@@ -370,7 +413,7 @@ describe('ValidationService', () => {
             nodeId: 'start-1',
             type: 'start',
             name: '开始',
-            instructions: { guide: 'g', logic: 'l', criteria: 'c' },
+            instructions: { requirement: '起始需求' },
             dependencies: [],
             assets: [],
             outputs: [],
@@ -380,7 +423,7 @@ describe('ValidationService', () => {
             nodeId: 'task-1',
             type: 'task',
             name: '任务',
-            instructions: { guide: 'g', logic: 'l', criteria: 'c' },
+            instructions: { requirement: '任务需求' },
             dependencies: ['start-1'],
             assets: [],
             outputs: [],
@@ -414,7 +457,7 @@ describe('ValidationService', () => {
             nodeId: 'node-1',
             type: 'task',
             name: '节点1',
-            instructions: { guide: 'g', logic: 'l', criteria: 'c' },
+            instructions: { requirement: '节点1需求' },
             dependencies: ['node-2'], // 依赖node-2
             assets: [],
             outputs: [],
@@ -424,7 +467,7 @@ describe('ValidationService', () => {
             nodeId: 'node-2',
             type: 'task',
             name: '节点2',
-            instructions: { guide: 'g', logic: 'l', criteria: 'c' },
+            instructions: { requirement: '节点2需求' },
             dependencies: ['node-1'], // 依赖node-1，形成循环
             assets: [],
             outputs: [],
@@ -451,7 +494,7 @@ describe('ValidationService', () => {
             nodeId: 'duplicate-id',
             type: 'start',
             name: '节点1',
-            instructions: { guide: 'g', logic: 'l', criteria: 'c' },
+            instructions: { requirement: '节点1需求' },
             dependencies: [],
             assets: [],
             outputs: [],
@@ -461,7 +504,7 @@ describe('ValidationService', () => {
             nodeId: 'duplicate-id', // 重复的ID
             type: 'task',
             name: '节点2',
-            instructions: { guide: 'g', logic: 'l', criteria: 'c' },
+            instructions: { requirement: '节点2需求' },
             dependencies: [],
             assets: [],
             outputs: [],
@@ -473,8 +516,8 @@ describe('ValidationService', () => {
 
       const result = validationService.checkDataIntegrity(duplicateGraph);
       expect(result.valid).toBe(false);
-      expect(result.issues.some(issue => 
-        issue.type === 'missing_reference' && 
+      expect(result.issues.some(issue =>
+        issue.type === 'missing_reference' &&
         issue.message.includes('重复的节点ID')
       )).toBe(true);
     });
@@ -491,7 +534,7 @@ describe('ValidationService', () => {
             nodeId: 'node-1',
             type: 'start',
             name: '节点1',
-            instructions: { guide: 'g', logic: 'l', criteria: 'c' },
+            instructions: { requirement: '节点1需求' },
             dependencies: [],
             assets: [],
             outputs: [],
@@ -501,7 +544,7 @@ describe('ValidationService', () => {
             nodeId: 'node-2',
             type: 'task',
             name: '节点2',
-            instructions: { guide: 'g', logic: 'l', criteria: 'c' },
+            instructions: { requirement: '节点2需求' },
             dependencies: [],
             assets: [],
             outputs: [],
@@ -526,8 +569,8 @@ describe('ValidationService', () => {
 
       const result = validationService.checkDataIntegrity(duplicateEdgeGraph);
       expect(result.valid).toBe(false);
-      expect(result.issues.some(issue => 
-        issue.type === 'invalid_edge' && 
+      expect(result.issues.some(issue =>
+        issue.type === 'invalid_edge' &&
         issue.message.includes('重复的边ID')
       )).toBe(true);
     });

@@ -1,6 +1,6 @@
 /**
  * 数据验证服务
- * 
+ *
  * 提供工作流图数据的验证功能，包括：
  * - JSON Schema验证
  * - 引用完整性检查
@@ -10,14 +10,17 @@
 
 import { z } from 'zod';
 import { ValidationError } from '../errors/workflow.errors';
-import { VALIDATION_RULES, SCHEMA_VERSION } from '../constants/workflow.constants';
-import type { 
-  WorkflowGraph, 
-  TaskNode, 
-  ValidationResult, 
-  IntegrityResult, 
+import {
+  VALIDATION_RULES,
+  SCHEMA_VERSION,
+} from '../constants/workflow.constants';
+import type {
+  WorkflowGraph,
+  TaskNode,
+  ValidationResult,
+  IntegrityResult,
   ReferenceResult,
-  IntegrityIssue 
+  IntegrityIssue,
 } from '../types/workflow.types';
 
 /**
@@ -25,87 +28,132 @@ import type {
  */
 const PositionSchema = z.object({
   x: z.number(),
-  y: z.number()
+  y: z.number(),
 });
 
 const InstructionsSchema = z.object({
-  guide: z.string().min(1, '指南不能为空'),
-  logic: z.string().min(1, '逻辑不能为空'),
-  criteria: z.string().min(1, '标准不能为空')
+  requirement: z.string().default(''),
+  prompt: z.string().nullable().optional(),
 });
 
 const AssetSchema = z.object({
-  assetId: z.string().min(1, '资产ID不能为空').max(50, '资产ID长度不能超过50个字符'),
+  assetId: z
+    .string()
+    .min(1, '资产ID不能为空')
+    .max(50, '资产ID长度不能超过50个字符'),
   path: z.string().min(1, '路径不能为空'),
   role: z.enum(['input', 'output', 'reference', 'template'], {
-    errorMap: () => ({ message: '资产角色必须是input、output、reference或template之一' })
+    errorMap: () => ({
+      message: '资产角色必须是input、output、reference或template之一',
+    }),
   }),
-  description: z.string().optional()
+  description: z.string().optional(),
 });
 
 const OutputSchema = z.object({
-  outputId: z.string().min(1, '输出ID不能为空').max(50, '输出ID长度不能超过50个字符'),
-  name: z.string().min(1, '输出名称不能为空').max(100, '输出名称长度不能超过100个字符'),
+  outputId: z
+    .string()
+    .min(1, '输出ID不能为空')
+    .max(50, '输出ID长度不能超过50个字符'),
+  name: z
+    .string()
+    .min(1, '输出名称不能为空')
+    .max(100, '输出名称长度不能超过100个字符'),
   type: z.enum(['file', 'data', 'artifact'], {
-    errorMap: () => ({ message: '输出类型必须是file、data或artifact之一' })
+    errorMap: () => ({ message: '输出类型必须是file、data或artifact之一' }),
   }),
   path: z.string().optional(),
-  description: z.string().optional()
+  description: z.string().optional(),
 });
 
 const TaskNodeSchema = z.object({
-  nodeId: z.string()
+  nodeId: z
+    .string()
     .min(1, '节点ID不能为空')
     .max(50, '节点ID长度不能超过50个字符')
-    .regex(VALIDATION_RULES.NODE_ID_PATTERN, '节点ID只能包含字母、数字、连字符和下划线'),
+    .regex(
+      VALIDATION_RULES.NODE_ID_PATTERN,
+      '节点ID只能包含字母、数字、连字符和下划线',
+    ),
   type: z.enum(['start', 'task', 'decision', 'parallel', 'end'], {
-    errorMap: () => ({ message: '节点类型必须是start、task、decision、parallel或end之一' })
+    errorMap: () => ({
+      message: '节点类型必须是start、task、decision、parallel或end之一',
+    }),
   }),
-  name: z.string().min(1, '节点名称不能为空').max(100, '节点名称长度不能超过100个字符'),
+  name: z
+    .string()
+    .min(1, '节点名称不能为空')
+    .max(100, '节点名称长度不能超过100个字符'),
   description: z.string().optional(),
   instructions: InstructionsSchema,
-  dependencies: z.array(z.string().regex(VALIDATION_RULES.NODE_ID_PATTERN, '依赖节点ID格式无效')),
+  dependencies: z.array(
+    z.string().regex(VALIDATION_RULES.NODE_ID_PATTERN, '依赖节点ID格式无效'),
+  ),
   assets: z.array(AssetSchema),
   outputs: z.array(OutputSchema),
-  status: z.enum(['pending', 'running', 'completed', 'failed', 'skipped'], {
-    errorMap: () => ({ message: '节点状态必须是pending、running、completed、failed或skipped之一' })
+  status: z.enum(['pending', 'completed', 'failed', 'review_needed'], {
+    errorMap: () => ({
+      message: '节点状态必须是pending、completed、failed或review_needed之一',
+    }),
   }),
   position: PositionSchema.optional(),
-  metadata: z.record(z.unknown()).optional()
+  metadata: z.record(z.unknown()).optional(),
 });
 
 const EdgeSchema = z.object({
   edgeId: z.string().min(1, '边ID不能为空').max(50, '边ID长度不能超过50个字符'),
-  source: z.string().regex(VALIDATION_RULES.NODE_ID_PATTERN, '源节点ID格式无效'),
-  target: z.string().regex(VALIDATION_RULES.NODE_ID_PATTERN, '目标节点ID格式无效'),
+  source: z
+    .string()
+    .regex(VALIDATION_RULES.NODE_ID_PATTERN, '源节点ID格式无效'),
+  target: z
+    .string()
+    .regex(VALIDATION_RULES.NODE_ID_PATTERN, '目标节点ID格式无效'),
   type: z.enum(['sequence', 'conditional', 'parallel'], {
-    errorMap: () => ({ message: '边类型必须是sequence、conditional或parallel之一' })
+    errorMap: () => ({
+      message: '边类型必须是sequence、conditional或parallel之一',
+    }),
   }),
   condition: z.string().optional(),
-  label: z.string().optional()
+  label: z.string().optional(),
 });
 
 const WorkflowSettingsSchema = z.object({
   autoSave: z.boolean().default(true),
-  autoSaveInterval: z.number().min(VALIDATION_RULES.MIN_AUTO_SAVE_INTERVAL, '自动保存间隔不能小于100毫秒').default(500),
+  autoSaveInterval: z
+    .number()
+    .min(VALIDATION_RULES.MIN_AUTO_SAVE_INTERVAL, '自动保存间隔不能小于100毫秒')
+    .default(500),
   enableBackup: z.boolean().default(true),
-  maxBackups: z.number().min(VALIDATION_RULES.MIN_BACKUP_COUNT, '备份数量不能小于1').default(5)
+  maxBackups: z
+    .number()
+    .min(VALIDATION_RULES.MIN_BACKUP_COUNT, '备份数量不能小于1')
+    .default(5),
 });
 
 const WorkflowGraphSchema = z.object({
-  projectId: z.string()
+  projectId: z
+    .string()
     .min(1, '项目ID不能为空')
     .max(50, '项目ID长度不能超过50个字符')
-    .regex(VALIDATION_RULES.PROJECT_ID_PATTERN, '项目ID只能包含字母、数字、连字符和下划线'),
-  projectName: z.string()
+    .regex(
+      VALIDATION_RULES.PROJECT_ID_PATTERN,
+      '项目ID只能包含字母、数字、连字符和下划线',
+    ),
+  projectName: z
+    .string()
     .min(1, '项目名称不能为空')
-    .max(VALIDATION_RULES.MAX_PROJECT_NAME_LENGTH, `项目名称长度不能超过${VALIDATION_RULES.MAX_PROJECT_NAME_LENGTH}个字符`),
-  version: z.string().regex(VALIDATION_RULES.VERSION_PATTERN, '版本号格式必须为x.y.z'),
+    .max(
+      VALIDATION_RULES.MAX_PROJECT_NAME_LENGTH,
+      `项目名称长度不能超过${VALIDATION_RULES.MAX_PROJECT_NAME_LENGTH}个字符`,
+    ),
+  version: z
+    .string()
+    .regex(VALIDATION_RULES.VERSION_PATTERN, '版本号格式必须为x.y.z'),
   createdAt: z.string().datetime('创建时间必须是有效的ISO 8601格式'),
   updatedAt: z.string().datetime('更新时间必须是有效的ISO 8601格式'),
   nodes: z.array(TaskNodeSchema).min(1, '工作流图至少需要包含一个节点'),
   edges: z.array(EdgeSchema),
-  settings: WorkflowSettingsSchema.optional()
+  settings: WorkflowSettingsSchema.optional(),
 });
 
 /**
@@ -131,7 +179,7 @@ export class ValidationService {
 
   /**
    * 验证工作流图数据
-   * 
+   *
    * @param data 待验证的数据
    * @returns ValidationResult 验证结果
    */
@@ -139,17 +187,17 @@ export class ValidationService {
     try {
       // 使用Zod进行Schema验证
       const result = WorkflowGraphSchema.safeParse(data);
-      
+
       if (!result.success) {
-        const errors = result.error.errors.map(err => ({
+        const errors = result.error.errors.map((err) => ({
           path: err.path.join('.'),
           message: err.message,
-          code: err.code
+          code: err.code,
         }));
 
         return {
           valid: false,
-          errors
+          errors,
         };
       }
 
@@ -157,35 +205,37 @@ export class ValidationService {
     } catch (error: any) {
       return {
         valid: false,
-        errors: [{
-          path: 'root',
-          message: `验证过程中发生错误: ${error.message}`,
-          code: 'VALIDATION_ERROR'
-        }]
+        errors: [
+          {
+            path: 'root',
+            message: `验证过程中发生错误: ${error.message}`,
+            code: 'VALIDATION_ERROR',
+          },
+        ],
       };
     }
   }
 
   /**
    * 验证任务节点数据
-   * 
+   *
    * @param data 待验证的节点数据
    * @returns ValidationResult 验证结果
    */
   public validateTaskNode(data: unknown): ValidationResult {
     try {
       const result = TaskNodeSchema.safeParse(data);
-      
+
       if (!result.success) {
-        const errors = result.error.errors.map(err => ({
+        const errors = result.error.errors.map((err) => ({
           path: err.path.join('.'),
           message: err.message,
-          code: err.code
+          code: err.code,
         }));
 
         return {
           valid: false,
-          errors
+          errors,
         };
       }
 
@@ -193,18 +243,20 @@ export class ValidationService {
     } catch (error: any) {
       return {
         valid: false,
-        errors: [{
-          path: 'root',
-          message: `节点验证过程中发生错误: ${error.message}`,
-          code: 'VALIDATION_ERROR'
-        }]
+        errors: [
+          {
+            path: 'root',
+            message: `节点验证过程中发生错误: ${error.message}`,
+            code: 'VALIDATION_ERROR',
+          },
+        ],
       };
     }
   }
 
   /**
    * 检查数据完整性
-   * 
+   *
    * @param graph 工作流图数据
    * @returns IntegrityResult 完整性检查结果
    */
@@ -216,96 +268,95 @@ export class ValidationService {
       const referenceResult = this.checkNodeReferences(graph);
       if (!referenceResult.valid) {
         // 添加缺失引用问题
-        referenceResult.missingReferences.forEach(ref => {
+        referenceResult.missingReferences.forEach((ref) => {
           issues.push({
             type: 'missing_reference',
             message: `引用的节点不存在: ${ref}`,
-            nodeId: ref
+            nodeId: ref,
           });
         });
 
         // 添加孤立节点问题
-        referenceResult.orphanedNodes.forEach(nodeId => {
+        referenceResult.orphanedNodes.forEach((nodeId) => {
           issues.push({
             type: 'orphaned_node',
             message: `孤立节点（没有被任何边连接）: ${nodeId}`,
-            nodeId
+            nodeId,
           });
         });
       }
 
       // 2. 检查循环依赖
       const circularDeps = this.detectCircularDependencies(graph);
-      circularDeps.forEach(nodeId => {
+      circularDeps.forEach((nodeId) => {
         issues.push({
           type: 'circular_dependency',
           message: `检测到循环依赖: ${nodeId}`,
-          nodeId
+          nodeId,
         });
       });
 
       // 3. 检查边的有效性
       const invalidEdges = this.validateEdges(graph);
-      invalidEdges.forEach(edge => {
+      invalidEdges.forEach((edge) => {
         issues.push({
           type: 'invalid_edge',
           message: `无效的边连接: ${edge.source} -> ${edge.target}`,
-          edgeId: edge.edgeId
+          edgeId: edge.edgeId,
         });
       });
 
       // 4. 检查节点ID唯一性
       const duplicateNodeIds = this.findDuplicateNodeIds(graph);
-      duplicateNodeIds.forEach(nodeId => {
+      duplicateNodeIds.forEach((nodeId) => {
         issues.push({
           type: 'missing_reference',
           message: `重复的节点ID: ${nodeId}`,
-          nodeId
+          nodeId,
         });
       });
 
       // 5. 检查边ID唯一性
       const duplicateEdgeIds = this.findDuplicateEdgeIds(graph);
-      duplicateEdgeIds.forEach(edgeId => {
+      duplicateEdgeIds.forEach((edgeId) => {
         issues.push({
           type: 'invalid_edge',
           message: `重复的边ID: ${edgeId}`,
-          edgeId
+          edgeId,
         });
       });
 
       return {
         valid: issues.length === 0,
-        issues
+        issues,
       };
-
     } catch (error: any) {
       issues.push({
         type: 'missing_reference',
-        message: `完整性检查过程中发生错误: ${error.message}`
+        message: `完整性检查过程中发生错误: ${error.message}`,
       });
 
       return {
         valid: false,
-        issues
+        issues,
       };
     }
   }
 
   /**
    * 检查节点引用完整性
-   * 
+   *
    * @param graph 工作流图数据
    * @returns ReferenceResult 引用检查结果
    */
   public checkNodeReferences(graph: WorkflowGraph): ReferenceResult {
-    const nodeIds = new Set(graph.nodes.map(node => node.nodeId));
+    const nodeIds = new Set(graph.nodes.map((node) => node.nodeId));
     const missingReferences: string[] = [];
     const referencedNodes = new Set<string>();
 
     // 检查节点依赖引用
-    graph.nodes.forEach(node => {
-      node.dependencies.forEach(depId => {
+    graph.nodes.forEach((node) => {
+      node.dependencies.forEach((depId) => {
         referencedNodes.add(depId);
         if (!nodeIds.has(depId)) {
           missingReferences.push(depId);
@@ -314,10 +365,10 @@ export class ValidationService {
     });
 
     // 检查边引用
-    graph.edges.forEach(edge => {
+    graph.edges.forEach((edge) => {
       referencedNodes.add(edge.source);
       referencedNodes.add(edge.target);
-      
+
       if (!nodeIds.has(edge.source)) {
         missingReferences.push(edge.source);
       }
@@ -328,19 +379,21 @@ export class ValidationService {
 
     // 查找孤立节点（没有被任何边连接的节点）
     const orphanedNodes = graph.nodes
-      .filter(node => !referencedNodes.has(node.nodeId) && node.type !== 'start')
-      .map(node => node.nodeId);
+      .filter(
+        (node) => !referencedNodes.has(node.nodeId) && node.type !== 'start',
+      )
+      .map((node) => node.nodeId);
 
     return {
       valid: missingReferences.length === 0 && orphanedNodes.length === 0,
       missingReferences: [...new Set(missingReferences)], // 去重
-      orphanedNodes
+      orphanedNodes,
     };
   }
 
   /**
    * 检测循环依赖
-   * 
+   *
    * @param graph 工作流图数据
    * @returns string[] 存在循环依赖的节点ID列表
    */
@@ -351,7 +404,7 @@ export class ValidationService {
 
     // 构建依赖图
     const dependencyMap = new Map<string, string[]>();
-    graph.nodes.forEach(node => {
+    graph.nodes.forEach((node) => {
       dependencyMap.set(node.nodeId, node.dependencies);
     });
 
@@ -381,7 +434,7 @@ export class ValidationService {
     };
 
     // 检查所有节点
-    graph.nodes.forEach(node => {
+    graph.nodes.forEach((node) => {
       if (!visited.has(node.nodeId)) {
         dfs(node.nodeId);
       }
@@ -392,21 +445,27 @@ export class ValidationService {
 
   /**
    * 验证边的有效性
-   * 
+   *
    * @param graph 工作流图数据
    * @returns 无效边列表
    */
-  private validateEdges(graph: WorkflowGraph): Array<{ edgeId: string; source: string; target: string }> {
-    const nodeIds = new Set(graph.nodes.map(node => node.nodeId));
-    const invalidEdges: Array<{ edgeId: string; source: string; target: string }> = [];
+  private validateEdges(
+    graph: WorkflowGraph,
+  ): Array<{ edgeId: string; source: string; target: string }> {
+    const nodeIds = new Set(graph.nodes.map((node) => node.nodeId));
+    const invalidEdges: Array<{
+      edgeId: string;
+      source: string;
+      target: string;
+    }> = [];
 
-    graph.edges.forEach(edge => {
+    graph.edges.forEach((edge) => {
       // 检查源节点和目标节点是否存在
       if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target)) {
         invalidEdges.push({
           edgeId: edge.edgeId,
           source: edge.source,
-          target: edge.target
+          target: edge.target,
         });
       }
 
@@ -415,7 +474,7 @@ export class ValidationService {
         invalidEdges.push({
           edgeId: edge.edgeId,
           source: edge.source,
-          target: edge.target
+          target: edge.target,
         });
       }
     });
@@ -425,7 +484,7 @@ export class ValidationService {
 
   /**
    * 查找重复的节点ID
-   * 
+   *
    * @param graph 工作流图数据
    * @returns 重复的节点ID列表
    */
@@ -434,7 +493,7 @@ export class ValidationService {
     const duplicates: string[] = [];
     const seen = new Set<string>();
 
-    graph.nodes.forEach(node => {
+    graph.nodes.forEach((node) => {
       if (seen.has(node.nodeId)) {
         duplicates.push(node.nodeId);
       } else {
@@ -447,7 +506,7 @@ export class ValidationService {
 
   /**
    * 查找重复的边ID
-   * 
+   *
    * @param graph 工作流图数据
    * @returns 重复的边ID列表
    */
@@ -456,7 +515,7 @@ export class ValidationService {
     const duplicates: string[] = [];
     const seen = new Set<string>();
 
-    graph.edges.forEach(edge => {
+    graph.edges.forEach((edge) => {
       if (seen.has(edge.edgeId)) {
         duplicates.push(edge.edgeId);
       } else {
@@ -469,7 +528,7 @@ export class ValidationService {
 
   /**
    * 获取Schema版本
-   * 
+   *
    * @returns string Schema版本号
    */
   public getSchemaVersion(): string {
@@ -478,7 +537,7 @@ export class ValidationService {
 
   /**
    * 加载JSON Schema（从文件）
-   * 
+   *
    * @returns Promise<object> JSON Schema对象
    */
   public async loadSchema(): Promise<object> {
@@ -489,27 +548,26 @@ export class ValidationService {
         type: 'object',
         title: 'WorkflowGraph',
         version: this.getSchemaVersion(),
-        description: '工作流图谱数据结构定义'
+        description: '工作流图谱数据结构定义',
       };
     } catch (error: any) {
-      throw new ValidationError(
-        `加载Schema失败: ${error.message}`,
-        [],
-        { operation: 'load_schema', originalError: error.message }
-      );
+      throw new ValidationError(`加载Schema失败: ${error.message}`, [], {
+        operation: 'load_schema',
+        originalError: error.message,
+      });
     }
   }
 
   /**
    * 创建验证错误
-   * 
+   *
    * @param message 错误消息
    * @param errors 详细错误列表
    * @returns ValidationError 验证错误对象
    */
   public static createValidationError(
     message: string,
-    errors: Array<{ path: string; message: string; code?: string }>
+    errors: Array<{ path: string; message: string; code?: string }>,
   ): ValidationError {
     return new ValidationError(message, errors, { validationType: 'schema' });
   }
