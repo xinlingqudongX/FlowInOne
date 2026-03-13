@@ -23,12 +23,12 @@
 
 ### Workflow Export
 
-- [ ] **EXPORT-01**: `GET /api/v1/workflow/:projectId/export` — 返回 AI 可解析的工作流 JSON，合并画布拓扑与 NodeMetadataEntity 数据
-- [ ] **EXPORT-02**: 导出 JSON 中每个节点包含：nodeId、type、requirement、prompt、attributes、status、dependencies[]
-- [ ] **EXPORT-03**: 导出 JSON 中每个节点包含 `can_execute` 布尔值（依赖节点全部为 completed 时为 true）
-- [ ] **EXPORT-04**: 导出 JSON 包含顶层 `execution_order` 数组（服务端 Kahn 算法预计算拓扑排序）
-- [ ] **EXPORT-05**: 导出 JSON 包含顶层 `executable_now` 数组（当前 can_execute=true 的节点 ID 列表）
-- [ ] **EXPORT-06**: 导出端点检测循环依赖（cyclic DAG），存在时返回 422 错误及循环路径描述
+- [x] **EXPORT-01**: `GET /api/v1/workflow/:projectId/export` — 返回 AI 可解析的工作流 JSON，合并画布拓扑与 NodeMetadataEntity 数据
+- [x] **EXPORT-02**: 导出 JSON 中每个节点包含：nodeId、type、requirement、prompt、attributes、status、dependencies[]
+- [x] **EXPORT-03**: 导出 JSON 中每个节点包含 `can_execute` 布尔值（依赖节点全部为 completed 时为 true）
+- [x] **EXPORT-04**: 导出 JSON 包含顶层 `execution_order` 数组（服务端 Kahn 算法预计算拓扑排序）
+- [x] **EXPORT-05**: 导出 JSON 包含顶层 `executable_now` 数组（当前 can_execute=true 的节点 ID 列表）
+- [x] **EXPORT-06**: 导出端点检测循环依赖（cyclic DAG），存在时返回 422 错误及循环路径描述
 
 ### Frontend Edit Panel
 
@@ -86,12 +86,12 @@
 | API-03 | Phase 2 | Complete |
 | API-04 | Phase 2 | Complete |
 | API-05 | Phase 2 | Complete |
-| EXPORT-01 | Phase 3 | Pending |
-| EXPORT-02 | Phase 3 | Pending |
-| EXPORT-03 | Phase 3 | Pending |
-| EXPORT-04 | Phase 3 | Pending |
-| EXPORT-05 | Phase 3 | Pending |
-| EXPORT-06 | Phase 3 | Pending |
+| EXPORT-01 | Phase 3 | Complete |
+| EXPORT-02 | Phase 3 | Complete |
+| EXPORT-03 | Phase 3 | Complete |
+| EXPORT-04 | Phase 3 | Complete |
+| EXPORT-05 | Phase 3 | Complete |
+| EXPORT-06 | Phase 3 | Complete |
 | EDITOR-01 | Phase 4 | Pending |
 | EDITOR-02 | Phase 4 | Pending |
 | EDITOR-03 | Phase 4 | Pending |

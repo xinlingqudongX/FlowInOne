@@ -110,7 +110,7 @@ Note: Phase 3 and Phase 4 can run in parallel after Phase 2 completes — they h
 |-------|----------------|--------|-----------|
 | 1. Data Model | 3/3 | Complete    | 2026-03-13 |
 | 2. Node API | 2/3 | Complete    | 2026-03-13 |
-| 3. Workflow Export | 0/2 | Not started | - |
+| 3. Workflow Export | 1/2 | In Progress|  |
 | 4. Node Edit Panel | 0/TBD | Not started | - |
 | 5. Status Visualization | 0/TBD | Not started | - |
 | 6. Review Workflow | 0/TBD | Not started | - |
