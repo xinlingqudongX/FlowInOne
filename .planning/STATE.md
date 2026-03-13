@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-stopped_at: Completed 02-node-api/02-01-PLAN.md
-last_updated: "2026-03-13T06:57:39.838Z"
+stopped_at: Completed 02-node-api/02-02-PLAN.md
+last_updated: "2026-03-13T07:03:00.289Z"
 last_activity: 2026-03-13 — Plan 01-03 complete
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 6
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 ---
@@ -72,6 +72,7 @@ Progress: [█████████░] 17% (phase 1 of 6 done)
 | Phase 01-data-model P02 | 7 min | 2 tasks | 11 files |
 | Phase 01-data-model P03 | 12 min | 2 tasks | 4 files |
 | Phase 02-node-api P01 | 6 | 2 tasks | 8 files |
+| Phase 02-node-api P02 | 2 | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -94,6 +95,8 @@ Recent decisions affecting current work:
 - [Phase 01-data-model]: NODE-METADATA-CONTRACT.md placed in src/node/ (not .planning/) as a codebase-browsable artifact for ROADMAP criterion 4
 - [Phase 02-node-api]: UpdateNodeDto omits status field — separate updateStatus endpoint prevents accidental status overwrite during content edits
 - [Phase 02-node-api]: sync.contract.spec.ts defines SYNC_UPSERT_OPTIONS inline — structural contract stays testable before NodeService implementation
+- [Phase 02-node-api]: em.persist(history)+em.persist(node)+em.flush() for updateStatus atomicity — single flush guarantees history+status written together
+- [Phase 02-node-api]: em.getReference(ProjectEntity,projectId) in sync() — no need to add ProjectEntity to forFeature(); proxy by ID suffices
 
 ### Pending Todos
 
@@ -106,6 +109,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T06:57:39.835Z
-Stopped at: Completed 02-node-api/02-01-PLAN.md
+Last session: 2026-03-13T07:03:00.287Z
+Stopped at: Completed 02-node-api/02-02-PLAN.md
 Resume file: None
