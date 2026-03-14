@@ -6,6 +6,8 @@
 import LogicFlow from '@logicflow/core';
 import { Control, Menu, SelectionSelect, Snapshot } from '@logicflow/extension';
 import { logicflowLogger } from '../utils/logger';
+import { CardNodeView } from '../nodes/NodeCardRenderer';
+import { CardNodeModel } from '../nodes/NodeCardModel';
 
 // LogicFlow基础配置
 export const logicFlowConfig = {
@@ -274,6 +276,11 @@ export function createLogicFlowInstance(container: HTMLElement): LogicFlow {
       plugins: logicFlowConfig.plugins.map(p => p.name || p.constructor?.name || 'Unknown')
     });
     
+    // 注册卡片节点类型（必须在 render 之前）
+    logicflowLogger.info('开始注册卡片节点类型...');
+    registerCardNodes(lf);
+    logicflowLogger.success('卡片节点类型注册完成');
+
     // 应用主题
     logicflowLogger.info('开始应用主题...');
     logicflowLogger.time('主题应用');
@@ -313,6 +320,18 @@ export function applyTheme(lf: LogicFlow): void {
     },
     polyline: logicFlowTheme.edge,
   });
+}
+
+/**
+ * 注册卡片节点类型（text/image/audio/video/file/property）到 LogicFlow 实例。
+ * RootNode 保留原有 RectNode 注册，不在此处理。
+ * @param lf LogicFlow 实例
+ */
+export function registerCardNodes(lf: LogicFlow): void {
+  const CARD_NODE_TYPES = ['text', 'image', 'audio', 'video', 'file', 'property'];
+  for (const type of CARD_NODE_TYPES) {
+    lf.register({ type, view: CardNodeView, model: CardNodeModel });
+  }
 }
 
 /**
