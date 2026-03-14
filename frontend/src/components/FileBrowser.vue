@@ -178,7 +178,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import type { WorkflowGraph } from '../types/workflow.types';
 
 interface FileInfo {
@@ -462,6 +462,20 @@ const sortedFiles = computed(() => {
     return sorted.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
   }
 });
+
+// 工作区切换时自动刷新文件列表
+watch(
+  () => props.workspaceHandle,
+  (handle) => {
+    if (handle) {
+      refreshFiles();
+    } else {
+      files.value = [];
+      selectedFile.value = '';
+    }
+  },
+  { immediate: true }
+);
 
 /**
  * 刷新文件列表

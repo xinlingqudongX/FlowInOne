@@ -172,6 +172,7 @@ import WorkspaceManager from './components/WorkspaceManager.vue';
 import FileBrowser from './components/FileBrowser.vue';
 import WorkflowEditor from './components/WorkflowEditor.vue';
 import { WorkflowManagerService } from './services/workflow-manager.service';
+import { FileSystemService } from './services/filesystem.service';
 import type { WorkflowGraph } from './types/workflow.types';
 import { useResponsive, responsiveUtils } from './utils/responsive.utils';
 import { keyboardShortcuts } from './services/keyboard-shortcuts.service';
@@ -188,6 +189,7 @@ interface Notification {
 }
 
 const workflowManager = WorkflowManagerService.getInstance();
+const fileSystemService = FileSystemService.getInstance();
 
 // 响应式设计
 const { viewport, isMobile, isTablet, isDesktop, getPanelWidth } = useResponsive();
@@ -489,6 +491,17 @@ async function handleFileOpened(graph: WorkflowGraph) {
     
     // 转换为编辑器需要的格式
     currentWorkflowData.value = convertToEditorFormat(graph);
+
+    // 绑定项目ID到当前工作区句柄，确保保存可用
+    if (currentWorkspace.value) {
+      await fileSystemService.saveDirectoryHandle(
+        graph.projectId,
+        currentWorkspace.value.handle,
+        currentWorkspace.value.path
+      );
+    } else {
+      showNotification('warning', '未选择工作区，项目保存可能失败');
+    }
     
     // 启用自动保存
     if (autoSaveEnabled.value) {

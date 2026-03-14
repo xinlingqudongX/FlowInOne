@@ -80,6 +80,8 @@ export class LogicFlowDataConverter implements DataConverter {
       type: this.mapNodeTypeToLogicFlow(nodeData.type),
       x: nodeData.x,
       y: nodeData.y,
+      width,
+      height,
       text: {
         value: nodeData.title || '',
         x: nodeData.x,
@@ -257,6 +259,8 @@ export class LogicFlowDataConverter implements DataConverter {
       type: this.mapNodeTypeToLogicFlow(type),
       x: position.x,
       y: position.y,
+      width,
+      height,
       text: {
         value: title || `${type.toUpperCase()} ${id}`,
         x: position.x,

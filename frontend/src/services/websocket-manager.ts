@@ -58,24 +58,31 @@ export class WebSocketManager {
       // 等待连接建立
       await new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => {
+          this.offStateChange(handleStateChange);
+          this.offError(handleError);
           reject(new Error('连接超时'));
         }, 10000);
 
-        this.socket!.onopen = () => {
-          clearTimeout(timeout);
-          this.reconnectAttempts = 0;
-          this.reconnectInterval = RECONNECT_CONFIG.initialInterval; // 重置重连间隔
-          this.setConnectionState('connected');
-          this.startHeartbeat();
-          console.log(`WebSocket连接已建立: ${wsUrl}`);
-          resolve();
+        const handleStateChange = (state: ConnectionState) => {
+          if (state === 'connected') {
+            clearTimeout(timeout);
+            this.offStateChange(handleStateChange);
+            this.offError(handleError);
+            console.log(`WebSocket连接已建立: ${wsUrl}`);
+            resolve();
+          }
         };
 
-        this.socket!.onerror = (error) => {
+        const handleError = (error: Error) => {
           clearTimeout(timeout);
+          this.offStateChange(handleStateChange);
+          this.offError(handleError);
           console.error('WebSocket连接失败:', error);
-          reject(new Error('WebSocket连接失败'));
+          reject(error);
         };
+
+        this.onStateChange(handleStateChange);
+        this.onError(handleError);
       });
 
     } catch (error) {

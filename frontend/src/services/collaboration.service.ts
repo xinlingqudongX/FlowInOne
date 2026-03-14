@@ -59,6 +59,7 @@ export class CollaborationService {
   private currentProjectId: string = '';
   private currentUserInfo: UserInfo | null = null;
   private onlineUsers: Map<string, User> = new Map();
+  private heartbeatTimer: number | null = null;
 
   // 事件回调
   private cursorUpdateCallbacks: ((userId: string, position: CursorPosition) => void)[] = [];
@@ -244,6 +245,7 @@ export class CollaborationService {
   private async joinRoom(projectId: string, userInfo: UserInfo): Promise<void> {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
+        this.wsManager.offMessage(handleRoomJoined);
         reject(new Error('加入房间超时'));
       }, 10000);
 
@@ -251,6 +253,7 @@ export class CollaborationService {
       const handleRoomJoined = (message: WebSocketMessage) => {
         if (message.type === 'room-joined' && message.projectId === projectId) {
           clearTimeout(timeout);
+          this.wsManager.offMessage(handleRoomJoined);
           console.log(`已加入项目房间: ${projectId}`, message.data);
           resolve();
         }
@@ -280,7 +283,7 @@ export class CollaborationService {
     });
 
     // 定期发送心跳
-    setInterval(() => {
+    this.heartbeatTimer = window.setInterval(() => {
       if (this.wsManager.getConnectionState() === 'connected') {
         this.wsManager.sendHeartbeat();
       }
@@ -474,6 +477,10 @@ export class CollaborationService {
    */
   destroy(): void {
     this.disconnect();
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
     this.wsManager.destroy();
     
     // 清空所有回调

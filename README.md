@@ -1,72 +1,133 @@
-# FlowInOne
+# SpecTaskGraph: AI 开发一体化场景的工作流程图编辑器
 
-FlowInOne 是一个工作流程图编辑器，用于将业务功能拆解为有依赖关系的节点图谱，并导出为 AI 可消费的结构化数据。
+SpecTaskGraph 是一个面向 AI 协作开发的任务图谱编排平台。它将需求拆解为具有依赖关系的节点，由 AI 按顺序或并行执行，并实时回传进度、状态与产物，帮助团队实现可拆分、可追踪、可验收的开发闭环。
 
 ## 业务概述
 
 ### 核心目标
 
-- 将项目的功能与依赖关系抽象为工作流图谱（DAG/知识图谱）
+- 将项目需求抽象为 **任务图谱**（DAG / 知识图谱）
+- 通过节点依赖关系，将复杂需求拆解为可分离、可并行、可验收的开发单元
 - 前端基于 File System API 加载本地目录作为工作区，并将流程文档写回本地
-- 后端负责数据记录与 AI 能力提供
+- 后端负责数据持久化、图谱编排与 AI 执行能力提供
+
+### 设计理念
+
+前期规划不必追求一次性完整，而是通过“需求解构 → 图谱编排 → 节点执行 → 状态回写 → 持续迭代”的闭环，逐步补全规划与实现边界。
+
+系统重点不是单纯画图，而是让需求具备以下能力：
+
+- **可拆分**：大需求拆成独立节点
+- **可依赖**：节点之间明确前置关系
+- **可调度**：AI IDE 可按可执行节点逐个推进
+- **可追踪**：每个节点有状态、进度、产物和日志
+- **可回放**：所有执行过程可审计、可复盘
 
 ### 用户角色
 
 - 无需登录即可使用
-- 主要面向开发人员、产品经理、业务架构师
+- 主要面向开发人员、产品经理、业务架构师、AI IDE / Agent 系统
 
 ### 核心业务流程
 
-- 创建/管理项目，维护项目名称与更新时间
-- 在画布上创建节点、配置节点属性、添加/删除节点
-- 节点类型包括文本、音频、视频、文件资源等，可按子级扩展
-- 通过连线定义节点依赖关系与执行顺序
-- 导出结构化图数据供 AI 解析与执行
+1. 创建或管理项目，维护项目名称、描述与更新时间
+2. 在画布上创建节点、配置节点属性、添加或删除节点
+3. 通过连线定义节点依赖关系与执行顺序
+4. 将需求自动或手动解构为任务节点，形成可执行图谱
+5. AI IDE 根据图谱获取当前可执行节点，发起执行请求
+6. AI IDE 回传进度、操作结果、产物路径与节点状态
+7. 系统根据节点完成状态，继续推进后续节点执行
+8. 导出结构化图数据供 AI 解析、执行和审计
 
-### 功能模块
+## 功能模块
 
-- 画布编辑：拖拽、连线、分组、缩放、撤销/重做
-- 节点配置面板：根据节点类型提供属性与输入输出配置
-- 编译与导出：将画布 JSON 编译为图结构指令集
-- 项目与协作：团队空间、版本控制、多角色协作
+- **画布编辑**：拖拽、连线、分组、缩放、撤销 / 重做
+- **节点配置面板**：根据节点类型提供属性、输入、输出与验收标准配置
+- **图谱编排**：将需求拆解为节点，并自动建立依赖关系
+- **节点状态机**：管理 `pending / ready / in_progress / blocked / done / failed` 等状态
+- **编译与导出**：将画布 JSON 编译为图结构指令集
+- **AI 执行协作**：为 AI IDE 提供节点领取、进度回传、完成确认、阻塞上报接口
+- **项目与协作**：团队空间、版本控制、多角色协作
+
+## AI 协作执行模型
+
+FlowInOne 支持一种“图谱驱动开发”的执行方式：把需求作为任务图谱，把 AI IDE 作为执行端，把节点状态作为系统事实来源。
+
+### 执行机制
+
+- 系统解析需求并生成节点图谱
+- 调度器根据依赖关系筛选当前可执行节点
+- AI IDE 获取节点上下文后开始执行
+- 执行过程中按阶段上报进度
+- 完成后提交产物与结果摘要
+- 系统更新节点状态并解锁后续节点
+
+### 推荐接口
+
+```http
+POST /projects/:id/graph/parse
+POST /projects/:id/nodes/:nodeId/claim
+POST /projects/:id/nodes/:nodeId/progress
+POST /projects/:id/nodes/:nodeId/complete
+POST /projects/:id/nodes/:nodeId/block
+GET  /projects/:id/next-ready-nodes
+GET  /projects/:id/graph
+GET  /projects/:id/nodes/:nodeId/context
+```
+
+### 节点建议字段
+
+- `id`：节点唯一标识
+- `type`：节点类型，如 requirement / api / ui / test / doc
+- `title`：节点标题
+- `description`：节点说明
+- `dependsOn`：前置依赖节点列表
+- `status`：节点状态
+- `progress`：完成进度
+- `inputs`：执行输入
+- `outputs`：执行产物
+- `acceptanceCriteria`：验收标准
+- `owner`：当前执行者或 AI Agent
+- `logs`：执行日志
 
 ## 技术栈
 
-- **后端**: NestJS + TypeScript
-- **HTTP引擎**: Fastify
-- **数据库**: SQLite + MikroORM (可选)
-- **API文档**: Scalar API Reference
-- **数据验证**: zod
-- **前端框架**: Vue 3
-- **前端流程图组件**: logicflow 参考：http://logicflow.cn/tutorial/about
-- **包管理**: pnpm
+- **后端**：NestJS + TypeScript
+- **HTTP 引擎**：Fastify
+- **数据库**：SQLite + MikroORM（可选）
+- **API 文档**：Scalar API Reference
+- **数据验证**：zod
+- **前端框架**：Vue 3
+- **前端流程图组件**：logicflow  
+  参考：http://logicflow.cn/tutorial/about
+- **包管理**：pnpm
 
 ## 快速开始
 
 ### 安装依赖
 
 ```bash
-$ pnpm install
+pnpm install
 ```
 
 ### 开发模式
 
 ```bash
 # 开发模式
-$ pnpm run start:dev
+pnpm run start:dev
 
-# Fastify开发模式
-$ pnpm run start:fastify:dev
+# Fastify 开发模式
+pnpm run start:fastify:dev
 ```
 
 ### 生产模式
 
 ```bash
 # 生产模式
-$ pnpm run start:prod
+pnpm run start:prod
 
-# Fastify生产模式
-$ pnpm run start:fastify
+# Fastify 生产模式
+pnpm run start:fastify
 ```
 
 ## 功能特性
@@ -76,90 +137,104 @@ $ pnpm run start:fastify
 - ✅ MikroORM 数据库操作（可选）
 - ✅ zod 数据验证
 - ✅ 前端可视化流程图编辑与导出
+- ✅ 支持需求图谱驱动开发
+- ✅ 支持节点状态机与进度回传
 - ✅ 完整的 TypeScript 支持
 - ✅ 单元测试和端到端测试
 
-## API文档
+## API 文档
 
-启动应用后，访问 [http://localhost:3000/api-reference](http://localhost:3000/api-reference) 查看交互式API文档。
+启动应用后，访问 [http://localhost:3000/api-reference](http://localhost:3000/api-reference) 查看交互式 API 文档。
 
 ## 开发工具
 
 ```bash
 # 代码格式化
-$ pnpm run format
+pnpm run format
 
 # 类型检查
-$ pnpm run type-check
+pnpm run type-check
 
 # 运行测试
-$ pnpm test
+pnpm test
 
 # 监听模式运行测试
-$ pnpm run test:watch
+pnpm run test:watch
 
 # 生成测试覆盖率报告
-$ pnpm run test:cov
+pnpm run test:cov
 
 # 调试模式运行测试
-$ pnpm run test:debug
+pnpm run test:debug
 
 # 运行端到端测试
-$ pnpm run test:e2e
+pnpm run test:e2e
 ```
 
 ## 项目结构
 
-```
+```text
 src/
-├── project/               # 项目管理模块
-│  └── entities/         # 项目相关实体
-│       ├── project.entity.ts      # 项目实体
-│      └── project-asset.entity.ts # 项目资产实体
-├── workflow-graph/        #工流图模块
-│   └── entities/         #工作流图相关实体
-│       └── workflow-graph.entity.ts #工作流图实体
-├── task-node/             # 任务节点模块
-│   └── entities/         # 任务节点相关实体
-│       ├── task-node.entity.ts    # 任务节点实体
-│       └── task-output.entity.ts   # 任务产出实体
-├── entities/              #基础数据库实体
-│  └── user.entity.ts
-├── services/              # 业务服务
+├── project/                  # 项目管理模块
+│   └── entities/             # 项目相关实体
+│       ├── project.entity.ts
+│       └── project-asset.entity.ts
+├── workflow-graph/           # 工作流图模块
+│   └── entities/             # 工作流图相关实体
+│       └── workflow-graph.entity.ts
+├── task-node/                # 任务节点模块
+│   └── entities/             # 任务节点相关实体
+│       ├── task-node.entity.ts
+│       └── task-output.entity.ts
+├── entities/                 # 基础数据库实体
+│   └── user.entity.ts
+├── services/                 # 业务服务
 │   └── user.service.ts
-├── adapter-factory.ts     # HTTP适配器工厂
-├── app.controller.spec.ts # 控制器测试
-├── app.controller.ts      # 主控制器
-├── app.module.ts          #根模块
-├── app.service.ts         # 主服务
-├── mikro-orm.config.ts    # MikroORM配置
-├── mikro-orm.module.ts    # MikroORM模块
-└── main.ts               #应用入口
+├── adapter-factory.ts        # HTTP 适配器工厂
+├── app.controller.spec.ts    # 控制器测试
+├── app.controller.ts         # 主控制器
+├── app.module.ts             # 根模块
+├── app.service.ts            # 主服务
+├── mikro-orm.config.ts       # MikroORM 配置
+├── mikro-orm.module.ts       # MikroORM 模块
+└── main.ts                   # 应用入口
 
-frontend/                 # 前端工程（构建产物输出到 src/public）
+frontend/                     # 前端工程（构建产物输出到 src/public）
 
 doc/
-├── 项目元数据.md          # 项目文档
-└── 项目结构.md            # 详细项目结构文档
+├── 项目元数据.md            # 项目文档
+└── 项目结构.md              # 详细项目结构文档
 ```
 
 ## 文档
 
-- [详细项目文档](./doc/项目元数据.md) -包含完整的技术说明和配置指南
-- [项目结构详细说明](./doc/项目结构说明.md) -包含各模块详细功能说明
+- [详细项目文档](./doc/项目元数据.md) - 包含完整的技术说明和配置指南
+- [项目结构详细说明](./doc/项目结构说明.md) - 包含各模块详细功能说明
 - [数据库配置示例](./doc/数据库配置示例.md) - 如需启用数据库功能，请参考此指南
 - [业务与功能需求](./doc/需求/业务与功能需求.md) - 业务目标与流程说明
 - [技术栈与工程规范](./doc/需求/技术栈和工程规范.md) - 技术选型与目录约定
 
-### 创建项目SKILL
+## 项目规范建议
+
+为了保证 AI 协作开发的一致性，建议补充以下规范：
+
+- 节点必须原子化，但不能过碎
+- 每个节点必须明确输入、输出与验收标准
+- 节点状态只能通过接口流转，禁止越权修改
+- AI 产物应优先以 diff / patch 形式提交
+- 所有执行过程应记录日志，便于审计与回放
+- 依赖未满足时，节点自动进入 blocked 状态
+- 同一节点支持重试、回滚和版本对比
+
+## 创建项目 SKILL
+
 ```cmd
-# 创建kiro的skills
-mkdir -j .kiro/skills skills
+# 创建 Kiro 的 skills
+mkdir -p .kiro/skills skills
 
-# 创建qoder的skills
-mkdir -j .qoder/skills skills
+# 创建 Qoder 的 skills
+mkdir -p .qoder/skills skills
 
-# 创建trae的skills
-mkdir -j .trae/skills skills
-
+# 创建 Trae 的 skills
+mkdir -p .trae/skills skills
 ```

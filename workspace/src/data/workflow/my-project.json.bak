@@ -1,0 +1,63 @@
+{
+  "projectId": "my-project",
+  "projectName": "我的项目",
+  "version": "1.0.0",
+  "createdAt": "2026-03-12T09:48:23.652Z",
+  "updatedAt": "2026-03-14T07:47:16.028Z",
+  "nodes": [
+    {
+      "nodeId": "start",
+      "type": "start",
+      "name": "开始",
+      "description": "这是项目的起始节点",
+      "instructions": {
+        "guide": "这是项目的起始节点",
+        "logic": "待补充",
+        "criteria": "待补充"
+      },
+      "dependencies": [],
+      "assets": [],
+      "outputs": [],
+      "status": "pending",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "metadata": {}
+    },
+    {
+      "nodeId": "node_28d585b4-4960-4298-9c69-8c6c48b3e01f",
+      "type": "task",
+      "name": "TEXT 节点",
+      "description": "",
+      "instructions": {
+        "guide": "",
+        "logic": "待补充",
+        "criteria": "待补充"
+      },
+      "dependencies": [],
+      "assets": [],
+      "outputs": [],
+      "status": "pending",
+      "position": {
+        "x": 481.1334877879533,
+        "y": 240.94670616746623
+      },
+      "metadata": {}
+    }
+  ],
+  "edges": [
+    {
+      "edgeId": "f6bd706f-c133-4d0a-8522-9af6e2471185",
+      "source": "start",
+      "target": "node_28d585b4-4960-4298-9c69-8c6c48b3e01f",
+      "type": "sequence"
+    }
+  ],
+  "settings": {
+    "autoSave": true,
+    "autoSaveInterval": 500,
+    "enableBackup": true,
+    "maxBackups": 5
+  }
+}
