@@ -8,21 +8,6 @@
       @cursor-click="handleCursorClick"
     />
     
-    <OnlineUsersList
-      v-if="collaborationEnabled"
-      :users="collaborationState.onlineUsers"
-      :current-user="currentUserForList"
-      :connection-state="collaborationState.connectionState"
-      :show-all-cursors="showAllCursors"
-      class="online-users-panel"
-      @edit-user="showUserConfig = true"
-      @focus-user="focusOnUser"
-      @toggle-user-cursor="toggleUserCursor"
-      @toggle-all-cursors="toggleAllCursors"
-      @reconnect="reconnectCollaboration"
-      @refresh-users="refreshUsers"
-    />
-
     <!-- 用户配置对话框 -->
     <UserConfigDialog
       v-if="collaborationManager"
@@ -34,8 +19,10 @@
 
     <!-- 工具栏 -->
     <div class="toolbar">
-      <h3>工作流图编辑器 (LogicFlow)</h3>
-      <div class="tool-buttons">
+      <div class="toolbar-left">
+        <h3>工作流图编辑器 (LogicFlow)</h3>
+      </div>
+      <div class="toolbar-right">
         <!-- 协同功能按钮 -->
         <button
           v-if="collaborationEnabled"
@@ -84,6 +71,22 @@
           <span class="icon">🗑️</span> 清空
         </button>
       </div>
+      <div v-if="collaborationEnabled" class="toolbar-users">
+        <OnlineUsersList
+          :users="collaborationState.onlineUsers"
+          :current-user="currentUserForList"
+          :connection-state="collaborationState.connectionState"
+          :show-all-cursors="showAllCursors"
+          :default-collapsed="true"
+          class="online-users-inline"
+          @edit-user="showUserConfig = true"
+          @focus-user="focusOnUser"
+          @toggle-user-cursor="toggleUserCursor"
+          @toggle-all-cursors="toggleAllCursors"
+          @reconnect="reconnectCollaboration"
+          @refresh-users="refreshUsers"
+        />
+      </div>
     </div>
 
     <!-- LogicFlow 编辑器容器 -->
@@ -108,6 +111,7 @@ import type { OperationConflict } from '../services/operation-sync.service';
 import { getWebSocketUrl } from '../config/websocket.config';
 import { createLogicFlowInstance } from '../config/logicflow.config';
 import { logicFlowConverter } from '../utils/logicflow-converter';
+import '../nodes/node-card.css';
 import { workflowLogger, logicflowLogger } from '../utils/logger';
 import type { 
   NodeType, 
@@ -426,7 +430,22 @@ function registerCustomNodes() {
     });
 
     // 2. 文本节点
-    class TextNodeModel extends RectNodeModel {}
+    class TextNodeModel extends RectNodeModel {
+      initNodeData(data: any) {
+        super.initNodeData(data);
+        const textValue = data?.properties?.textContent ?? data?.text?.value;
+        if (textValue && this.text) {
+          this.text.value = textValue;
+        }
+
+        const width = data?.width ?? data?.properties?.width;
+        const height = data?.height ?? data?.properties?.height;
+        if (typeof width === 'number' && typeof height === 'number') {
+          this.width = width;
+          this.height = height;
+        }
+      }
+    }
     class TextNodeView extends RectNode {}
     
     nodeConfigs.push({ 
@@ -550,9 +569,15 @@ function setupLogicFlowEvents() {
 
   const lf = logicFlowInstance.value;
 
-  // 节点点击事件
+  // 节点点击事件：切换展开/折叠态（RootNode 跳过）
   lf.on('node:click', ({ data }) => {
     console.log('节点点击:', data);
+    // 跳过 RootNode，不展开编辑区
+    if (data.type === 'root' || data.type === 'RootNode') return;
+    const model = lf.getNodeModelById(data.id);
+    if (!model) return;
+    const current = model.getProperties();
+    model.setProperties({ expanded: !current.expanded });
   });
 
   // 节点双击事件
@@ -774,6 +799,20 @@ function loadWorkflowData(workflowData: WorkflowData) {
 /**
  * 添加节点
  */
+function getNodeSize(nodeType: NodeType): { width: number; height: number } {
+  const sizeMap: Record<NodeType, { width: number; height: number }> = {
+    root: { width: 180, height: 70 },
+    text: { width: 420, height: 260 },
+    property: { width: 440, height: 260 },
+    file: { width: 420, height: 260 },
+    image: { width: 420, height: 260 },
+    video: { width: 420, height: 260 },
+    audio: { width: 420, height: 260 },
+  };
+
+  return sizeMap[nodeType] || { width: 420, height: 260 };
+}
+
 function addNode(nodeType: NodeType, position?: { x: number; y: number }) {
   workflowLogger.group(`添加${nodeType}节点`);
   workflowLogger.info(`尝试添加${nodeType}节点`, {
@@ -831,24 +870,28 @@ function addNode(nodeType: NodeType, position?: { x: number; y: number }) {
   });
 
   // 映射节点类型到LogicFlow类型
+  // root → RootNode（保留 RectNode 注册）；其他 6 种使用小写类型（CardNode）
   const typeMap: Record<NodeType, string> = {
     root: 'RootNode',
-    text: 'TextNode',
-    property: 'PropertyNode',
-    file: 'FileNode',
-    image: 'ImageNode',
-    video: 'VideoNode',
-    audio: 'AudioNode',
+    text: 'text',
+    property: 'property',
+    file: 'file',
+    image: 'image',
+    video: 'video',
+    audio: 'audio',
   };
 
   const logicFlowType = typeMap[nodeType] || 'TextNode';
   const nodeId = generateUniqueId('node');
 
+  const { width, height } = getNodeSize(nodeType);
   const nodeConfig = {
     id: nodeId,
     type: logicFlowType,
     x: pos.x,
     y: pos.y,
+    width,
+    height,
     text: {
       value: `${nodeType.toUpperCase()} 节点`,
       x: pos.x,
@@ -1127,11 +1170,15 @@ function handleRemoteNodeCreate(operation: CollaborationOperation, lf: LogicFlow
 
   const logicFlowType = typeMap[data.type] || 'TextNode';
 
+  const nodeType = (data.type as NodeType) || 'text';
+  const { width, height } = getNodeSize(nodeType);
   const nodeConfig = {
     id: operation.nodeId,
     type: logicFlowType,
     x: data.position?.x || 100,
     y: data.position?.y || 100,
+    width,
+    height,
     text: {
       value: data.text || '远程节点',
       x: data.position?.x || 100,
@@ -1337,13 +1384,6 @@ function handleCursorClick(userId: string): void {
   position: relative;
 }
 
-.online-users-panel {
-  position: absolute;
-  top: 80px;
-  right: 20px;
-  z-index: 1000;
-}
-
 .connection-indicator {
   display: flex;
   align-items: center;
@@ -1388,6 +1428,8 @@ function handleCursorClick(userId: string): void {
   justify-content: space-between;
   align-items: center;
   z-index: 10;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .toolbar h3 {
@@ -1396,10 +1438,26 @@ function handleCursorClick(userId: string): void {
   font-size: 16px;
 }
 
-.tool-buttons {
+.toolbar-left {
+  display: flex;
+  align-items: center;
+}
+
+.toolbar-right {
   display: flex;
   gap: 0.5rem;
   align-items: center;
+  flex-wrap: wrap;
+}
+
+.toolbar-users {
+  display: flex;
+  align-items: center;
+}
+
+.online-users-inline {
+  min-width: 260px;
+  max-width: 320px;
 }
 .btn {
   padding: 0.5rem 1rem;
@@ -1510,7 +1568,7 @@ function handleCursorClick(userId: string): void {
     font-size: 14px;
   }
   
-  .tool-buttons {
+  .toolbar-right {
     flex-wrap: wrap;
     justify-content: center;
   }
@@ -1520,9 +1578,9 @@ function handleCursorClick(userId: string): void {
     font-size: 0.8rem;
   }
   
-  .online-users-panel {
-    top: 60px;
-    right: 10px;
+  .toolbar-users {
+    width: 100%;
+    justify-content: center;
   }
 }
 </style>
