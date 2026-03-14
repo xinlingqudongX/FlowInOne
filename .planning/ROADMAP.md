@@ -14,8 +14,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Data Model** - Establish the authoritative schema and resolve dual-write architectural conflicts before any code is written (4/4 success criteria met)
 - [x] **Phase 2: Node API** - Expose CRUD, status transitions, execution history, and canvas sync endpoints (completed 2026-03-13)
-- [x] **Phase 3: Workflow Export** - Deliver the AI IDE entry point with topological sort, can_execute flags, and cycle detection (completed 2026-03-13)
-- [ ] **Phase 4: Node Edit Panel** - Build the frontend authoring UI where developers fill in requirements and prompts per node
+- [x] **Phase 3: Workflow Export** - Deliver the AI IDE entry point with topological sort, can_execute flags, and cycle detection (completed 2026-03-13)
+- [ ] **Phase 4: Node Edit Panel** - Build the frontend inline card editor where developers fill in requirements and prompts per node
 - [ ] **Phase 5: Status Visualization** - Color-code node borders by status on the canvas and keep them in sync via WebSocket
 - [ ] **Phase 6: Review Workflow** - Close the human-AI review loop with approve/reject controls and execution history display
 
@@ -69,14 +69,20 @@ Plans:
 - [ ] 03-02-PLAN.md — WorkflowExportService (Kahn sort + cycle detection), GET export route in WorkflowController, NodeModule registration, human smoke test (EXPORT-01, EXPORT-02, EXPORT-03, EXPORT-04, EXPORT-05, EXPORT-06)
 
 ### Phase 4: Node Edit Panel
-**Goal**: Developers can open any node on the canvas and fill in its requirement, prompt, and attributes through a purpose-built sidebar panel
+**Goal**: Developers can click any node on the canvas and edit its requirement, prompt, and attributes through an inline card that expands in place
 **Depends on**: Phase 2
 **Requirements**: EDITOR-01, EDITOR-02, EDITOR-03, EDITOR-04, EDITOR-05
 **Success Criteria** (what must be TRUE):
-  1. Clicking any node on the canvas opens a right-side panel without disrupting the canvas layout
-  2. The panel displays and allows editing of the requirement textarea, prompt textarea, and an attributes key-value table with add/remove row controls
-  3. Clicking Save in the panel calls `PATCH /api/v1/node/:id` and shows a visible success or error feedback to the user
-**Plans**: TBD
+  1. Clicking any node on the canvas toggles an inline edit area below the node summary without disrupting the canvas layout
+  2. The expanded card displays and allows editing of the requirement textarea, prompt textarea, and an attributes key-value table with add/remove row controls
+  3. Content changes auto-save via 500ms debounce calling `PATCH /api/v1/node/:id` with visible success ("已保存 ✓") or error ("保存失败") feedback inside the card
+**Plans**: 4 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Wave 0 test scaffolds: node-card.spec.ts (8 RED tests, EDITOR-01..04) + node-api.spec.ts (5 RED tests, EDITOR-05) (EDITOR-01, EDITOR-02, EDITOR-03, EDITOR-04, EDITOR-05)
+- [ ] 04-02-PLAN.md — CardNodeModel + CardNodeView (HtmlNode) + NodeApiService implementation, all 13 Wave 0 tests GREEN (EDITOR-01, EDITOR-02, EDITOR-03, EDITOR-04, EDITOR-05)
+- [ ] 04-03-PLAN.md — node-card.css, logicflow.config.ts registerCardNodes, WorkflowEditor.vue node:click wiring (EDITOR-01, EDITOR-02, EDITOR-03, EDITOR-04, EDITOR-05)
+- [ ] 04-04-PLAN.md — Human smoke test: canvas expand/collapse, auto-save, attributes CRUD, anchor alignment (EDITOR-01, EDITOR-02, EDITOR-03, EDITOR-04, EDITOR-05)
 
 ### Phase 5: Status Visualization
 **Goal**: Node status is immediately visible on the canvas as color-coded borders and stays current without requiring a page refresh
@@ -111,6 +117,6 @@ Note: Phase 3 and Phase 4 can run in parallel after Phase 2 completes — they h
 | 1. Data Model | 3/3 | Complete    | 2026-03-13 |
 | 2. Node API | 2/3 | Complete    | 2026-03-13 |
 | 3. Workflow Export | 2/2 | Complete    | 2026-03-13 |
-| 4. Node Edit Panel | 0/TBD | Not started | - |
+| 4. Node Edit Panel | 0/4 | Not started | - |
 | 5. Status Visualization | 0/TBD | Not started | - |
 | 6. Review Workflow | 0/TBD | Not started | - |
