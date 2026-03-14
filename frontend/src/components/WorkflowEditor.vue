@@ -923,19 +923,20 @@ function addNode(nodeType: NodeType, position?: { x: number; y: number }) {
     workflowLogger.time(`${nodeType}节点添加`);
     lf.addNode(nodeConfig);
     workflowLogger.timeEnd(`${nodeType}节点添加`);
-    
-    // 验证节点是否成功添加
-    const addedNode = lf.getNodeModelById(nodeId);
-    if (addedNode) {
-      workflowLogger.success(`成功添加${nodeType}节点`, {
-        nodeId,
-        nodeModel: addedNode,
-        nodeData: addedNode.getData ? addedNode.getData() : '无数据方法'
+
+    // 将新节点同步到后端，使 PATCH /api/v1/node/:id 可用
+    if (props.projectId) {
+      fetch(`/api/v1/workflow/${props.projectId}/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nodes: [{ nodeId, nodeType }],
+        }),
+      }).catch((err) => {
+        workflowLogger.warn('节点同步到后端失败', { nodeId, err });
       });
-    } else {
-      workflowLogger.warn(`节点添加后无法找到节点模型`, { nodeId });
     }
-    
+
   } catch (error) {
     workflowLogger.error(`添加${nodeType}节点失败`, {
       error,
@@ -944,7 +945,7 @@ function addNode(nodeType: NodeType, position?: { x: number; y: number }) {
       addNodeMethod: typeof lf.addNode
     });
   }
-  
+
   workflowLogger.groupEnd();
 }
 
